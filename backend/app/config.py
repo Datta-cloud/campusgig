@@ -8,7 +8,9 @@ load_dotenv(BASE_DIR / ".env")
 # PostgreSQL / Cloud Database Support (Render / Supabase / Neon fix)
 raw_db_url = os.getenv("DATABASE_URL", "sqlite:///./campusgig.db")
 if raw_db_url.startswith("postgres://"):
-    DATABASE_URL = raw_db_url.replace("postgres://", "postgresql://", 1)
+    DATABASE_URL = raw_db_url.replace("postgres://", "postgresql+psycopg2://", 1)
+elif raw_db_url.startswith("postgresql://") and not raw_db_url.startswith("postgresql+"):
+    DATABASE_URL = raw_db_url.replace("postgresql://", "postgresql+psycopg2://", 1)
 else:
     DATABASE_URL = raw_db_url
 
