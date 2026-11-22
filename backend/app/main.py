@@ -165,11 +165,16 @@ async def lifespan(app: FastAPI):
     # Shutdown (nothing to clean up for SQLite)
 
 
+is_prod = os.getenv("ENVIRONMENT", "").lower() == "production" or os.getenv("ENABLE_DOCS", "true").lower() == "false"
+
 app = FastAPI(
     title="CampusGig API",
     description="Freelance Platform for Students - Backend API",
     version="2.4.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    docs_url=None if is_prod else "/docs",
+    redoc_url=None if is_prod else "/redoc",
+    openapi_url=None if is_prod else "/openapi.json"
 )
 
 # SlowAPI Rate Limiter Attachment
