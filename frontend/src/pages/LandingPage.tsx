@@ -114,25 +114,26 @@ const LandingPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors">
       {/* Hero */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-indigo-950 via-slate-900 to-blue-950 text-white border-b border-indigo-900/40">
-        <div className="absolute inset-0 opacity-15"
-          style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(99, 102, 241, 0.4) 1px, transparent 1px), radial-gradient(circle at 80% 20%, rgba(168, 85, 247, 0.4) 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
-        <div className="relative max-w-7xl mx-auto px-4 pt-16 pb-24 text-center">
-          <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md rounded-full px-4 py-2 mb-6 text-sm font-semibold border border-white/15 text-indigo-200 shadow-sm">
-            <Zap className="w-4 h-4 text-amber-400" />
-            Your Personal Tech Mentor & Academic Project Partner
+      <div className="relative overflow-hidden bg-[#0B0F19] text-white border-b border-slate-800/80">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-96 bg-gradient-to-b from-blue-600/15 via-indigo-600/10 to-transparent blur-3xl pointer-events-none" />
+        <div className="absolute inset-0 opacity-10"
+          style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.4) 1px, transparent 1px), radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.4) 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 pt-16 pb-24 text-center">
+          <div className="inline-flex items-center gap-2 bg-slate-800/80 hover:bg-slate-800 backdrop-blur-md rounded-full px-4 py-2 mb-6 text-xs sm:text-sm font-semibold border border-slate-700/80 text-blue-300 shadow-sm transition-all">
+            <Zap className="w-4 h-4 text-blue-400" />
+            Your Personal Tech Mentor &amp; Academic Project Partner
           </div>
-          <h1 className="text-5xl md:text-6xl font-black mb-4 leading-tight tracking-tight">
-            Campus<span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-orange-400 to-yellow-300">Gig</span>
+          <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold mb-5 leading-tight tracking-tight text-white">
+            Campus<span className="bg-gradient-to-r from-blue-400 via-indigo-300 to-cyan-300 bg-clip-text text-transparent">Gig</span>
           </h1>
-          <p className="text-xl text-slate-300 mb-10 max-w-2xl mx-auto font-medium">
-            Expert project delivery for college students & school kids — ML, GenAI, Web Dev, Android & beyond
+          <p className="text-lg sm:text-xl text-slate-300 mb-10 max-w-2xl mx-auto font-normal leading-relaxed">
+            Expert project delivery for college students &amp; school kids — ML, GenAI, Web Dev, Android &amp; beyond
           </p>
 
           {/* Trust badges */}
-          <div className="flex flex-wrap justify-center gap-3 mb-12">
+          <div className="flex flex-wrap justify-center gap-2.5 sm:gap-3 mb-12">
             {['✅ 30% Advance Only', '🤖 AI-Powered Scope', '💬 1-on-1 Live Chat', '⚡ Express Delivery'].map(b => (
-              <span key={b} className="bg-white/10 backdrop-blur-md rounded-full px-4 py-2 text-sm font-semibold border border-white/15 shadow-sm">{b}</span>
+              <span key={b} className="bg-slate-800/90 hover:bg-slate-800 border border-slate-700/80 text-slate-200 rounded-full px-4 py-2 text-xs sm:text-sm font-medium backdrop-blur shadow-sm transition-colors">{b}</span>
             ))}
           </div>
 
@@ -140,23 +141,23 @@ const LandingPage: React.FC = () => {
           <div className="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto">
             <button
               onClick={() => { setShowModal(true); setTab('student'); }}
-              className="group bg-white/10 hover:bg-white/15 backdrop-blur-md border border-white/20 hover:border-white/35 rounded-2xl p-8 text-left transition-all hover:scale-105 hover:shadow-2xl shadow-lg"
+              className="group bg-slate-900/80 hover:bg-slate-850/90 backdrop-blur-xl border border-slate-700/70 hover:border-blue-500/60 rounded-2xl p-7 sm:p-8 text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-blue-500/10 shadow-lg cursor-pointer"
             >
-              <div className="text-5xl mb-4">🎓</div>
-              <h2 className="text-2xl font-bold mb-2 text-white">College Students</h2>
-              <p className="text-indigo-200 text-sm mb-4">ML, GenAI, Full-Stack, Android & More</p>
-              <span className="inline-flex items-center gap-1 text-amber-400 font-bold text-sm group-hover:gap-2 transition-all">
+              <div className="w-14 h-14 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-3xl mb-4 group-hover:scale-105 transition-transform">🎓</div>
+              <h2 className="text-2xl font-bold mb-2 text-white group-hover:text-blue-300 transition-colors">College Students</h2>
+              <p className="text-slate-400 text-sm mb-5 leading-relaxed">ML, GenAI, Full-Stack, Android &amp; More</p>
+              <span className="inline-flex items-center gap-1.5 text-blue-400 font-semibold text-sm group-hover:gap-2.5 transition-all">
                 Get Started <ArrowRight className="w-4 h-4" />
               </span>
             </button>
             <button
               onClick={() => { setShowModal(true); setTab('student'); }}
-              className="group bg-white/10 hover:bg-white/15 backdrop-blur-md border border-white/20 hover:border-white/35 rounded-2xl p-8 text-left transition-all hover:scale-105 hover:shadow-2xl shadow-lg"
+              className="group bg-slate-900/80 hover:bg-slate-850/90 backdrop-blur-xl border border-slate-700/70 hover:border-indigo-500/60 rounded-2xl p-7 sm:p-8 text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-indigo-500/10 shadow-lg cursor-pointer"
             >
-              <div className="text-5xl mb-4">🎒</div>
-              <h2 className="text-2xl font-bold mb-2 text-white">School Students</h2>
-              <p className="text-indigo-200 text-sm mb-4">Class 1-10 Assignments, Reports & Projects</p>
-              <span className="inline-flex items-center gap-1 text-amber-400 font-bold text-sm group-hover:gap-2 transition-all">
+              <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-3xl mb-4 group-hover:scale-105 transition-transform">🎒</div>
+              <h2 className="text-2xl font-bold mb-2 text-white group-hover:text-indigo-300 transition-colors">School Students</h2>
+              <p className="text-slate-400 text-sm mb-5 leading-relaxed">Class 1-10 Assignments, Reports &amp; Projects</p>
+              <span className="inline-flex items-center gap-1.5 text-indigo-400 font-semibold text-sm group-hover:gap-2.5 transition-all">
                 Get Started <ArrowRight className="w-4 h-4" />
               </span>
             </button>
@@ -165,30 +166,35 @@ const LandingPage: React.FC = () => {
       </div>
 
       {/* Services */}
-      <div className="max-w-7xl mx-auto px-4 py-20">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-extrabold text-slate-900 dark:text-white mb-3">Our Services</h2>
-          <p className="text-slate-500 dark:text-slate-400 font-medium">Professional project delivery across all domains</p>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-20">
+        <div className="text-center mb-14">
+          <span className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-3 py-1 rounded-full border border-blue-200 dark:border-blue-800/60 inline-block mb-3">
+            What We Deliver
+          </span>
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">Our Services</h2>
+          <p className="text-slate-500 dark:text-slate-400 text-base mt-2 max-w-lg mx-auto">Professional project delivery across all domains</p>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {services.map(s => (
-            <div key={s.title} className="card border border-slate-200/80 dark:border-slate-800 hover:border-indigo-500/50 hover:shadow-lg transition-all hover:-translate-y-1 cursor-pointer group bg-white dark:bg-slate-850">
-              <div className="text-4xl mb-4">{s.icon}</div>
-              <h3 className="font-bold text-slate-900 dark:text-white mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{s.title}</h3>
-              <p className="text-slate-500 dark:text-slate-400 text-sm mb-3">{s.desc}</p>
-              <span className="font-extrabold text-indigo-600 dark:text-indigo-400">{s.price}</span>
+            <div key={s.title} className="bg-white dark:bg-slate-800/90 border border-slate-200/90 dark:border-slate-700/80 rounded-2xl p-6 transition-all duration-200 hover:-translate-y-1 hover:shadow-xl hover:border-blue-500/40 group cursor-pointer shadow-sm">
+              <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-700/60 flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform">{s.icon}</div>
+              <h3 className="font-bold text-slate-900 dark:text-white text-base mb-1.5 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{s.title}</h3>
+              <p className="text-slate-500 dark:text-slate-400 text-sm mb-4 leading-relaxed">{s.desc}</p>
+              <span className="inline-block font-extrabold text-blue-600 dark:text-blue-400 text-sm tracking-tight">{s.price}</span>
             </div>
           ))}
         </div>
       </div>
 
       {/* Footer */}
-      <footer className="bg-slate-950 text-slate-400 py-10 text-center border-t border-slate-900">
+      <footer className="bg-[#0B0F19] text-slate-400 py-12 text-center border-t border-slate-800">
         <div className="flex items-center justify-center gap-2 mb-3">
-          <Zap className="w-5 h-5 text-indigo-400" />
-          <span className="text-white font-bold text-lg">CampusGig</span>
+          <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center shadow-md shadow-blue-500/30">
+            <Zap className="w-4 h-4 text-white" />
+          </div>
+          <span className="text-white font-extrabold text-lg tracking-tight">CampusGig</span>
         </div>
-        <p className="text-sm">© {new Date().getFullYear()} CampusGig. Your academic success partner.</p>
+        <p className="text-xs sm:text-sm text-slate-400">© {new Date().getFullYear()} CampusGig. Your academic success partner.</p>
       </footer>
 
       {/* Login/Register Modal */}
