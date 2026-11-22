@@ -1,0 +1,211 @@
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.orm import Session
+from pydantic import BaseModel, EmailStr
+from typing import Optional
+from datetime import datetime
+
+from app.database import get_db
+from app.models.user import User
+from app.services.auth_service import (
+    hash_password, verify_password, create_access_token,
+    get_current_user, require_admin
+)
+from app.limiter import limiter
+
+router = APIRouter(prefix="/api/auth", tags=["Authentication"])
+
+
+class RegisterRequest(BaseModel):
+    email: str
+    username: str
+    password: str
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
+    student_type: str  # "school" / "college"
+    school_class: Optional[str] = None
+    college_name: Optional[str] = None
+    college_branch: Optional[str] = None
+    referral_code: Optional[str] = None
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class ProfileUpdateRequest(BaseModel):
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
+    college_name: Optional[str] = None
+    college_branch: Optional[str] = None
+    school_class: Optional[str] = None
+
+
+class UserResponse(BaseModel):
+    id: int
+    email: str
+    username: str
+    full_name: Optional[str]
+    phone: Optional[str]
+    role: str
+    student_type: Optional[str]
+    school_class: Optional[str]
+    college_name: Optional[str]
+    college_branch: Optional[str]
+    is_active: bool
+    is_online: bool
+    created_at: Optional[datetime]
+
+    class Config:
+        from_attributes = True
+
+
+@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+def register(req: RegisterRequest, db: Session = Depends(get_db)):
+    # Check email uniqueness
+    if db.query(User).filter(User.email == req.email).first():
+        raise HTTPException(status_code=400, detail="Email already registered")
+    # Check username uniqueness
+    if db.query(User).filter(User.username == req.username).first():
+        raise HTTPException(status_code=400, detail="Username already taken")
+
+    if req.student_type not in ("school", "college"):
+        raise HTTPException(status_code=400, detail="student_type must be 'school' or 'college'")
+
+    # Generate personal referral code
+    clean_username = "".join(c for c in req.username if c.isalnum()).upper()[:6]
+    my_referral_code = f"{clean_username}2026"
+
+    user = User(
+        email=req.email,
+        username=req.username,
+        full_name=req.full_name,
+        phone=req.phone,
+        role="student",
+        student_type=req.student_type,
+        school_class=req.school_class,
+        college_name=req.college_name,
+        college_branch=req.college_branch,
+        hashed_password=hash_password(req.password),
+        referral_code=my_referral_code,
+        wallet_balance=200.0,  # Welcome bonus
+        is_active=True,
+        is_online=False
+    )
+
+    # Process referral reward if code was provided
+    if req.referral_code:
+        ref_code_clean = req.referral_code.strip().upper()
+        referrer = db.query(User).filter(User.referral_code == ref_code_clean).first()
+        if referrer:
+            user.referred_by = referrer.referral_code
+            referrer.wallet_balance = (referrer.wallet_balance or 0.0) + 250.0
+
+            from app.services.notification_service import create_notification
+            create_notification(
+                db=db,
+                user_id=referrer.id,
+                title="Campus Referral Reward Earned! 🎁",
+                message=f"Your friend {req.full_name or req.username} joined using your code {ref_code_clean}! ₹250 added to your wallet.",
+                channel="in_app",
+                action_url="/dashboard"
+            )
+
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.post("/login")
+@limiter.limit("5/minute")
+async def login(request: Request, db: Session = Depends(get_db)):
+    content_type = request.headers.get("content-type", "")
+    if "application/json" in content_type:
+        try:
+            body = await request.json()
+            username = body.get("username", "")
+            password = body.get("password", "")
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid JSON body")
+    else:
+        form = await request.form()
+        username = str(form.get("username", ""))
+        password = str(form.get("password", ""))
+
+    if not username or not password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username and password are required"
+        )
+
+    user = db.query(User).filter(
+        (User.username == username) | (User.email == username)
+    ).first()
+
+    if not user or not verify_password(password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid username or password"
+        )
+    if not user.is_active:
+        raise HTTPException(status_code=400, detail="Account is deactivated")
+
+    # Update online status
+    user.is_online = True
+    user.last_seen = datetime.utcnow()
+    db.commit()
+
+    token = create_access_token({"sub": str(user.id), "role": user.role})
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "username": user.username,
+            "full_name": user.full_name,
+            "role": user.role,
+            "student_type": user.student_type,
+            "college_name": user.college_name,
+            "college_branch": user.college_branch,
+            "school_class": user.school_class,
+            "phone": user.phone,
+            "is_online": user.is_online
+        }
+    }
+
+
+@router.get("/me", response_model=UserResponse)
+def get_me(current_user: User = Depends(get_current_user)):
+    return current_user
+
+
+@router.post("/logout")
+def logout(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    current_user.is_online = False
+    current_user.last_seen = datetime.utcnow()
+    db.commit()
+    return {"message": "Logged out successfully"}
+
+
+@router.put("/profile", response_model=UserResponse)
+def update_profile(
+    req: ProfileUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if req.full_name is not None:
+        current_user.full_name = req.full_name
+    if req.phone is not None:
+        current_user.phone = req.phone
+    if req.college_name is not None:
+        current_user.college_name = req.college_name
+    if req.college_branch is not None:
+        current_user.college_branch = req.college_branch
+    if req.school_class is not None:
+        current_user.school_class = req.school_class
+    db.commit()
+    db.refresh(current_user)
+    return current_user

@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+*/node_modules/
+venv/
+.venv/
+env/
+
+# Python compiled files
+__pycache__/
+*/__pycache__/
+*/*/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Production build output
+dist/
+*/dist/
+dist-ssr/
+build/
+
+# Local database & deliverables
+*.db
+*.sqlite
+*.sqlite3
+backend/campusgig.db
+backend/uploads/*
+!backend/uploads/.gitkeep
+uploads/*
+!uploads/.gitkeep
+
+# Environment files & Secrets
+.env
+.env.local
+.env.*.local
+*.env
+
+# IDE & System
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log

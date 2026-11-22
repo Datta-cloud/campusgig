@@ -1,0 +1,24 @@
+{
+  "name": "CampusGig - Academic & Engineering Freelance Network",
+  "short_name": "CampusGig",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#4f46e5",
+  "orientation": "portrait-primary",
+  "description": "Full-stack project development, IEEE documentation, and 1-on-1 viva defense mentorship for school and college students.",
+  "icons": [
+    {
+      "src": "/vite.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/vite.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
