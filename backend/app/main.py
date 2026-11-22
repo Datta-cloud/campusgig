@@ -158,9 +158,12 @@ def seed_database():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    Base.metadata.create_all(bind=engine)
-    print("✓ Database tables created")
-    seed_database()
+    try:
+        Base.metadata.create_all(bind=engine)
+        print("✓ Database tables created")
+        seed_database()
+    except Exception as e:
+        print(f"⚠️ Database startup check: {e}")
     yield
     # Shutdown (nothing to clean up for SQLite)
 

@@ -11,6 +11,7 @@ if DATABASE_URL.startswith("sqlite"):
     connect_args = {"check_same_thread": False}
 else:
     # Production Cloud PostgreSQL Engine Configuration (Supabase / Neon / Render)
+    connect_args = {"connect_timeout": int(os.getenv("DB_CONNECT_TIMEOUT", "10"))}
     engine_kwargs["pool_pre_ping"] = True
     engine_kwargs["pool_size"] = int(os.getenv("DB_POOL_SIZE", "10"))
     engine_kwargs["max_overflow"] = int(os.getenv("DB_MAX_OVERFLOW", "20"))
