@@ -169,21 +169,21 @@ export const OrderDetail: React.FC = () => {
   const deliverables = (order as any).deliverables || [];
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 py-10 px-4 sm:px-6 transition-colors">
+    <div className="min-h-screen bg-slate-50 py-10 px-4 sm:px-6">
       <div className="max-w-5xl mx-auto space-y-6">
         
         {/* Top Back & Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-3">
-            <Link to="/dashboard" className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors shadow-sm">
+            <Link to="/dashboard" className="p-2 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-slate-800">
               <ArrowLeft className="w-5 h-5" />
             </Link>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-mono text-xs font-bold text-slate-500 dark:text-slate-400">{order.order_number}</span>
+                <span className="font-mono text-xs font-bold text-slate-500">{order.order_number}</span>
                 <StatusBadge status={order.status} />
               </div>
-              <h1 className="text-2xl font-black text-slate-900 dark:text-white mt-0.5">{order.project_title}</h1>
+              <h1 className="text-2xl font-black text-slate-900 mt-0.5">{order.project_title}</h1>
             </div>
           </div>
 
@@ -198,7 +198,7 @@ export const OrderDetail: React.FC = () => {
             <button
               type="button"
               onClick={() => setWalkthroughModalOpen(true)}
-              className="btn-secondary flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
+              className="btn-secondary flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-indigo-600 hover:text-indigo-700"
             >
               <Video className="w-4 h-4" /> 1-on-1 Walkthrough
             </button>
@@ -206,7 +206,7 @@ export const OrderDetail: React.FC = () => {
             <button
               type="button"
               onClick={() => setVivaModalOpen(true)}
-              className="btn-secondary flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-purple-600 hover:text-purple-700 dark:text-purple-400"
+              className="btn-secondary flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-purple-600 hover:text-purple-700"
             >
               <Sparkles className="w-4 h-4" /> Viva Prep AI
             </button>
@@ -225,30 +225,30 @@ export const OrderDetail: React.FC = () => {
             )}
 
             {order.status !== 'pending_payment' && order.balance_amount <= 0 && (
-              <span className="px-3.5 py-2 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 text-xs font-bold rounded-xl border border-emerald-200 dark:border-emerald-800/60 flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> Fully Paid (₹0 Balance)
+              <span className="px-3.5 py-2 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-xl border border-emerald-200 flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Fully Paid (₹0 Balance)
               </span>
             )}
           </div>
         </div>
 
         {/* Milestone Steps Bar */}
-        <div className="glass-panel p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/80 shadow-sm">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-4">Milestone Progress</h3>
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">Milestone Progress</h3>
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
             
-            <div className="p-3.5 rounded-2xl border bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60">
-              <span className="text-[10px] font-bold uppercase text-emerald-700 dark:text-emerald-400 block">Milestone 1</span>
-              <span className="text-xs font-bold text-emerald-900 dark:text-emerald-200 flex items-center gap-1 mt-1">
-                <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> 30% Advance (₹{order.advance_amount})
+            <div className="p-3.5 rounded-xl border bg-emerald-50 border-emerald-200">
+              <span className="text-[10px] font-bold uppercase text-emerald-700 block">Milestone 1</span>
+              <span className="text-xs font-bold text-emerald-900 flex items-center gap-1 mt-1">
+                <Check className="w-4 h-4 text-emerald-600" /> 30% Advance (₹{order.advance_amount})
               </span>
-              <span className="text-[10px] text-emerald-600 dark:text-emerald-400">Locked & Verified</span>
+              <span className="text-[10px] text-emerald-600">Locked & Verified</span>
             </div>
 
-            <div className={`p-3.5 rounded-2xl border ${
+            <div className={`p-3.5 rounded-xl border ${
               ['in_progress', 'ready_for_review', 'completed'].includes(order.status)
-                ? 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800/60 text-blue-900 dark:text-blue-200'
-                : 'bg-slate-50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800 text-slate-400'
+                ? 'bg-blue-50 border-blue-200 text-blue-900'
+                : 'bg-slate-50 border-slate-200 text-slate-400'
             }`}>
               <span className="text-[10px] font-bold uppercase block">Milestone 2</span>
               <span className="text-xs font-bold flex items-center gap-1 mt-1">
@@ -257,10 +257,10 @@ export const OrderDetail: React.FC = () => {
               <span className="text-[10px]">Code, Report, PPT build</span>
             </div>
 
-            <div className={`p-3.5 rounded-2xl border ${
+            <div className={`p-3.5 rounded-xl border ${
               ['ready_for_review', 'completed'].includes(order.status)
-                ? 'bg-purple-50 dark:bg-purple-950/30 border-purple-200 dark:border-purple-800/60 text-purple-900 dark:text-purple-200'
-                : 'bg-slate-50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800 text-slate-400'
+                ? 'bg-purple-50 border-purple-200 text-purple-900'
+                : 'bg-slate-50 border-slate-200 text-slate-400'
             }`}>
               <span className="text-[10px] font-bold uppercase block">Milestone 3</span>
               <span className="text-xs font-bold flex items-center gap-1 mt-1">
@@ -269,10 +269,10 @@ export const OrderDetail: React.FC = () => {
               <span className="text-[10px]">Preview verification</span>
             </div>
 
-            <div className={`p-3.5 rounded-2xl border ${
+            <div className={`p-3.5 rounded-xl border ${
               order.status === 'completed'
-                ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60 text-emerald-900 dark:text-emerald-200'
-                : 'bg-slate-50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800 text-slate-400'
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                : 'bg-slate-50 border-slate-200 text-slate-400'
             }`}>
               <span className="text-[10px] font-bold uppercase block">Milestone 4</span>
               <span className="text-xs font-bold flex items-center gap-1 mt-1">
@@ -632,15 +632,15 @@ export const OrderDetail: React.FC = () => {
         </div>
 
         {/* Deliverables Section with Phase-Wise Downloads */}
-        <div className="glass-panel p-6 sm:p-7 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/80 shadow-sm space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200/60 dark:border-slate-800/60 pb-4">
+        <div className="bg-white p-6 sm:p-7 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-4">
             <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400 bg-brand-500/10 px-2.5 py-1 rounded-full border border-brand-500/20">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-brand-600 bg-brand-50 px-2.5 py-1 rounded border border-brand-200">
                 Phase-Wise Delivery
               </span>
-              <h3 className="font-extrabold text-slate-900 dark:text-white text-lg mt-1">Project Deliverables &amp; Artifacts</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Download the verified source code package, documentation report, presentation PPT, and viva notes
+              <h3 className="font-bold text-slate-900 text-lg mt-1">Project Deliverables & Artifacts</h3>
+              <p className="text-xs text-slate-500">
+                Download the source code package, documentation report, presentation PPT, and viva notes
               </p>
             </div>
 
@@ -659,7 +659,7 @@ export const OrderDetail: React.FC = () => {
           {/* Actual Uploaded Phase Files (Big Download Cards) */}
           {order.attachments && order.attachments.length > 0 ? (
             <div className="space-y-3">
-              <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
                 Available Downloads ({order.attachments.length} Files Ready):
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -671,14 +671,14 @@ export const OrderDetail: React.FC = () => {
                   return (
                     <div
                       key={att.id}
-                      className="p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/60 dark:bg-slate-800/50 hover:border-brand-500/40 transition-all shadow-sm space-y-3 flex flex-col justify-between"
+                      className="p-5 rounded-2xl border-2 border-slate-200 bg-gradient-to-br from-white to-slate-50/50 hover:border-brand-400 transition-all shadow-sm space-y-3 flex flex-col justify-between"
                     >
                       <div className="flex items-start gap-3.5">
                         <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 font-bold ${
-                          isZip ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300' :
-                          isPdf ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300' :
-                          isPpt ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300' :
-                          'bg-brand-100 dark:bg-brand-950/60 text-brand-700 dark:text-brand-300'
+                          isZip ? 'bg-purple-100 text-purple-700' :
+                          isPdf ? 'bg-rose-100 text-rose-700' :
+                          isPpt ? 'bg-amber-100 text-amber-700' :
+                          'bg-brand-100 text-brand-700'
                         }`}>
                           {isZip ? <Package className="w-5 h-5" /> :
                            isPdf ? <FileText className="w-5 h-5" /> :
@@ -687,13 +687,13 @@ export const OrderDetail: React.FC = () => {
                         </div>
 
                         <div className="flex-1 min-w-0">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/60 px-2 py-0.5 rounded border border-brand-200 dark:border-brand-800/60 inline-block mb-1">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-brand-700 bg-brand-50 px-2 py-0.5 rounded border border-brand-200 inline-block mb-1">
                             {att.file_type || 'Project Deliverable'}
                           </span>
-                          <h5 className="text-sm font-bold text-slate-900 dark:text-white truncate" title={att.file_name}>
+                          <h5 className="text-sm font-bold text-slate-900 truncate" title={att.file_name}>
                             {att.file_name}
                           </h5>
-                          <span className="text-[11px] text-slate-400 dark:text-slate-500 block mt-0.5">
+                          <span className="text-[11px] text-slate-400 block mt-0.5">
                             Uploaded by Mentor • {att.created_at ? new Date(att.created_at).toLocaleDateString() : 'Ready'}
                           </span>
                         </div>
@@ -705,7 +705,7 @@ export const OrderDetail: React.FC = () => {
                           onClick={() => handleOpenPreview(att.id, att.file_name)}
                           className="flex-1 btn-secondary py-2 text-xs font-bold flex items-center justify-center gap-1.5"
                         >
-                          <Eye className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" /> Inspect Preview
+                          <Eye className="w-3.5 h-3.5 text-brand-600" /> Inspect Preview
                         </button>
 
                         <a
@@ -724,10 +724,10 @@ export const OrderDetail: React.FC = () => {
               </div>
             </div>
           ) : (
-            <div className="p-8 text-center bg-slate-50/70 dark:bg-slate-850/50 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 space-y-2">
+            <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-300 space-y-2">
               <Package className="w-10 h-10 text-slate-400 mx-auto" />
-              <h4 className="font-bold text-slate-700 dark:text-slate-300 text-sm">Deliverables Being Prepared</h4>
-              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+              <h4 className="font-bold text-slate-700 text-sm">Deliverables Being Prepared</h4>
+              <p className="text-xs text-slate-500 max-w-md mx-auto">
                 The mentor is currently developing the source code and files for this project. As soon as a phase is ready, downloadable files will appear here!
               </p>
               {user?.role === 'admin' && (
