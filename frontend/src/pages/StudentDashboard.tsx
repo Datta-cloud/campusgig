@@ -59,43 +59,63 @@ const StudentDashboard: React.FC = () => {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      {/* Welcome */}
-      <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Welcome back, {user?.full_name?.split(' ')[0]} 👋
-          </h1>
-          <p className="text-gray-500 mt-1">Track your projects and start new ones</p>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-4 py-2">
-            <OnlineIndicator isOnline={adminOnline} />
-            <span className="text-sm text-gray-600">Admin {adminOnline ? 'available' : 'offline'}</span>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      {/* Welcome & Quick Action Bar */}
+      <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 shadow-sm relative overflow-hidden">
+        <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-gradient-to-br from-brand-500/10 via-indigo-500/10 to-transparent rounded-full blur-3xl pointer-events-none" />
+        
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 relative z-10">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400 bg-brand-500/10 dark:bg-brand-500/20 px-2.5 py-0.5 rounded-full border border-brand-500/20">
+                Scholar Portal
+              </span>
+              <span className="text-xs text-slate-400 dark:text-slate-400 font-medium">B.Tech / M.Tech Capstone</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+              Welcome back, {user?.full_name?.split(' ')[0]} 👋
+            </h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              Track project milestones, inspect code previews, and schedule 1-on-1 viva walkthroughs.
+            </p>
           </div>
-          <Link to="/order/new" className="btn-primary">
-            <Plus className="w-4 h-4" />
-            New Project
-          </Link>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl px-4 py-2.5 shadow-sm text-xs font-semibold text-slate-700 dark:text-slate-300">
+              <OnlineIndicator isOnline={adminOnline} />
+              <span>Dedicated Mentor {adminOnline ? 'Online' : 'On Standby'}</span>
+            </div>
+
+            <Link
+              to="/order/new"
+              className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white font-bold text-sm shadow-md shadow-brand-500/25 flex items-center gap-2 hover:scale-[1.02] transition-all"
+            >
+              <Plus className="w-4 h-4" />
+              <span>New Capstone Order</span>
+            </Link>
+          </div>
         </div>
       </div>
 
       {/* Action Required: Ready for Review Alert Banner */}
       {readyReviewOrders.length > 0 && (
-        <div className="bg-gradient-to-r from-purple-600 via-indigo-600 to-brand-600 text-white p-5 rounded-2xl shadow-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8 animate-slide-up">
-          <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shrink-0">
-              <Sparkles className="w-6 h-6 animate-pulse" />
+        <div className="bg-gradient-to-r from-purple-700 via-indigo-600 to-brand-600 text-white p-6 rounded-3xl shadow-xl shadow-purple-500/10 flex flex-col md:flex-row md:items-center md:justify-between gap-5 animate-slide-up border border-purple-400/20">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0 border border-white/20">
+              <Sparkles className="w-6 h-6 text-amber-300 animate-pulse" />
             </div>
             <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-purple-200 bg-white/10 px-2 py-0.5 rounded">
-                Action Required
-              </span>
-              <h3 className="font-bold text-base sm:text-lg mt-0.5">
-                Deliverables Ready for Review ({readyReviewOrders.length} Order Waiting)
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-wider text-purple-200 bg-white/15 px-2.5 py-0.5 rounded-full border border-white/20">
+                  Deliverables Ready
+                </span>
+                <span className="text-xs text-purple-100 font-medium">Order #{readyReviewOrders[0].order_number}</span>
+              </div>
+              <h3 className="font-extrabold text-lg sm:text-xl text-white mt-1">
+                Your Capstone Code &amp; IEEE Report are Ready!
               </h3>
-              <p className="text-xs text-purple-100 mt-0.5">
-                The mentor has finished your code and files. Pay remaining 70% fee to unlock all download packages!
+              <p className="text-xs sm:text-sm text-purple-100/90 mt-0.5 max-w-xl">
+                Source code preview is verified. Pay remaining balance to unlock instant high-speed ZIP package downloads.
               </p>
             </div>
           </div>
@@ -107,33 +127,42 @@ const StudentDashboard: React.FC = () => {
               setPaymentModalType('balance');
               setPaymentModalOpen(true);
             }}
-            className="bg-white text-purple-800 hover:bg-purple-50 font-bold text-xs px-5 py-3 rounded-xl shadow-md flex items-center justify-center gap-2 shrink-0 transition-all"
+            className="bg-white hover:bg-slate-50 text-purple-900 font-extrabold text-xs sm:text-sm px-6 py-3 rounded-2xl shadow-lg flex items-center justify-center gap-2 shrink-0 transition-transform hover:scale-[1.02]"
           >
-            <ShieldCheck className="w-4 h-4 text-purple-700" /> Pay Remaining Fee (₹{readyReviewOrders[0].balance_amount})
+            <ShieldCheck className="w-4 h-4 text-purple-700" />
+            <span>Pay Remaining Fee (₹{readyReviewOrders[0].balance_amount?.toLocaleString()})</span>
           </button>
         </div>
       )}
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+      {/* Stats KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
         {stats.map(s => (
-          <div key={s.label} className="card flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-xl ${s.bg} flex items-center justify-center`}>
+          <div
+            key={s.label}
+            className="glass-panel p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/80 flex items-center gap-4 transition-all hover:border-brand-500/30 dark:hover:border-brand-500/30 hover:shadow-md"
+          >
+            <div className={`w-13 h-13 p-3 rounded-2xl ${s.bg} dark:bg-slate-800 flex items-center justify-center border border-slate-200/50 dark:border-slate-700/50 shadow-inner`}>
               <s.icon className={`w-6 h-6 ${s.color}`} />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{s.value}</p>
-              <p className="text-sm text-gray-500">{s.label}</p>
+              <p className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">{s.value}</p>
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-0.5">{s.label}</p>
             </div>
           </div>
         ))}
       </div>
 
       {/* Orders Table */}
-      <div className="card p-0 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="font-semibold text-gray-900">My Orders</h2>
-          <span className="text-sm text-gray-500">{orders.length} total</span>
+      <div className="glass-panel rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/80 overflow-hidden shadow-sm">
+        <div className="px-6 py-5 border-b border-slate-200/60 dark:border-slate-800/60 flex items-center justify-between">
+          <div>
+            <h2 className="font-extrabold text-slate-900 dark:text-white text-base sm:text-lg">My Orders &amp; Capstones</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Live progress tracker and milestone deliverables</p>
+          </div>
+          <span className="text-xs font-bold px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+            {orders.length} {orders.length === 1 ? 'Project' : 'Projects'} Total
+          </span>
         </div>
 
         {loading ? (
@@ -141,43 +170,62 @@ const StudentDashboard: React.FC = () => {
             <LoadingSpinner />
           </div>
         ) : orders.length === 0 ? (
-          <div className="text-center py-20">
-            <div className="text-6xl mb-4">📋</div>
-            <h3 className="font-semibold text-gray-900 mb-2">No orders yet</h3>
-            <p className="text-gray-500 text-sm mb-6">Start your first project request</p>
-            <Link to="/order/new" className="btn-primary">
-              <Plus className="w-4 h-4" /> New Project
+          <div className="text-center py-20 px-4">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-3xl bg-brand-50 dark:bg-brand-950/40 text-brand-600 dark:text-brand-400 flex items-center justify-center text-3xl shadow-inner">
+              📋
+            </div>
+            <h3 className="font-bold text-slate-900 dark:text-white text-lg mb-1">No Orders Created Yet</h3>
+            <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm max-w-sm mx-auto mb-6">
+              Launch your engineering capstone or academic research project with our vetted mentors.
+            </p>
+            <Link
+              to="/order/new"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-brand-600 to-indigo-600 text-white font-bold text-xs shadow-md shadow-brand-500/25"
+            >
+              <Plus className="w-4 h-4" /> Start Your First Project
             </Link>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-100">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50/70 dark:bg-slate-800/40 border-b border-slate-200/60 dark:border-slate-800/60">
                 <tr>
-                  {['Order #', 'Project', 'Status', 'Deadline', 'Amount', 'Actions'].map(h => (
-                    <th key={h} className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
+                  {['Order #', 'Project Details', 'Milestone Status', 'Target Deadline', 'Financials', 'Actions'].map(h => (
+                    <th key={h} className="px-6 py-3.5 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      {h}
+                    </th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-sm">
                 {orders.map(order => (
-                  <tr key={order.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 font-mono text-sm text-blue-600 font-semibold">{order.order_number}</td>
-                    <td className="px-6 py-4">
-                      <p className="font-medium text-gray-900 text-sm">{order.project_title}</p>
-                      <p className="text-xs text-gray-500">{order.domain}</p>
+                  <tr key={order.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors">
+                    <td className="px-6 py-4 font-mono font-bold text-brand-600 dark:text-brand-400 text-xs">
+                      {order.order_number}
                     </td>
-                    <td className="px-6 py-4"><StatusBadge status={order.status} /></td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
+                    <td className="px-6 py-4 max-w-xs">
+                      <p className="font-bold text-slate-900 dark:text-white line-clamp-1">{order.project_title}</p>
+                      <span className="inline-block text-[11px] font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md mt-0.5">
+                        {order.domain}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <StatusBadge status={order.status} />
+                    </td>
+                    <td className="px-6 py-4 text-xs font-medium text-slate-600 dark:text-slate-300">
                       {new Date(order.deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </td>
                     <td className="px-6 py-4">
-                      <p className="text-sm font-semibold text-gray-900">Total: ₹{order.total_price.toLocaleString()}</p>
-                      <p className="text-xs text-gray-500">Adv Paid: ₹{order.advance_amount.toLocaleString()}</p>
+                      <p className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                        Total: ₹{order.total_price.toLocaleString()}
+                      </p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Adv Paid: ₹{order.advance_amount.toLocaleString()}
+                      </p>
                       {order.status === 'ready_for_review' && (
-                        <p className="text-xs font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded mt-1 w-fit">
+                        <span className="inline-block text-[10px] font-extrabold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800/60 px-2 py-0.5 rounded-md mt-1">
                           Remaining: ₹{order.balance_amount.toLocaleString()}
-                        </p>
+                        </span>
                       )}
                     </td>
                     <td className="px-6 py-4">
@@ -190,10 +238,11 @@ const StudentDashboard: React.FC = () => {
                               setPaymentModalType('balance');
                               setPaymentModalOpen(true);
                             }}
-                            className="btn-accent text-xs px-3 py-1.5 font-bold shadow-sm flex items-center gap-1 shrink-0"
+                            className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-3 py-1.5 rounded-xl font-bold shadow-sm shadow-purple-500/20 flex items-center gap-1.5 transition-all"
                             title="Pay Remaining Balance Fee"
                           >
-                            <ShieldCheck className="w-3.5 h-3.5" /> Pay Remaining (₹{order.balance_amount})
+                            <ShieldCheck className="w-3.5 h-3.5" />
+                            <span>Pay Remaining (₹{order.balance_amount?.toLocaleString()})</span>
                           </button>
                         )}
 
@@ -205,16 +254,24 @@ const StudentDashboard: React.FC = () => {
                               setPaymentModalType('advance');
                               setPaymentModalOpen(true);
                             }}
-                            className="btn-primary text-xs px-3 py-1.5 font-bold shadow-sm shrink-0"
+                            className="bg-brand-600 hover:bg-brand-700 text-white text-xs px-3 py-1.5 rounded-xl font-bold shadow-sm shadow-brand-500/20 transition-all"
                           >
-                            Pay 30% Advance (₹{order.advance_amount})
+                            Pay 30% Advance (₹{order.advance_amount?.toLocaleString()})
                           </button>
                         )}
 
-                        <Link to={`/order/${order.id}`} className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-600 transition-colors" title="View Order">
+                        <Link
+                          to={`/order/${order.id}`}
+                          className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-brand-50 dark:hover:bg-brand-950/50 text-slate-600 dark:text-slate-300 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                          title="View Order Deliverables & Suite"
+                        >
                           <ExternalLink className="w-4 h-4" />
                         </Link>
-                        <Link to={`/chat/${order.id}`} className="p-1.5 rounded-lg hover:bg-green-50 text-green-600 transition-colors" title="Chat">
+                        <Link
+                          to={`/chat/${order.id}`}
+                          className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                          title="Chat with Mentor"
+                        >
                           <MessageCircle className="w-4 h-4" />
                         </Link>
                       </div>
