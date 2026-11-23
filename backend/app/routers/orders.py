@@ -108,6 +108,55 @@ def generate_order_number(db: Session) -> str:
     return f"CG-{year}-{count:05d}"
 
 
+def _serialize_attachment(a, order_id: int, advance_confirmed: bool, is_midterm_unlocked: bool, is_fully_settled: bool) -> dict:
+    t = f"{a.file_type or ''} {a.file_name or ''}".lower()
+    if any(k in t for k in ["phase 1", "synopsis", "scope", "architecture", "diagram", "srs", "reference", "preview"]):
+        phase_key = "phase_1"
+        phase_label = "Phase 1: Project Scope, Synopsis & UML Architecture"
+        req_percent = 30
+        is_unlocked = advance_confirmed
+        unlock_msg = "Unlocked with 30% Advance" if is_unlocked else "Unlocks after 30% advance verified by mentor"
+    elif any(k in t for k in ["phase 2", "prototype", "draft", "mid-term", "midterm", "devops"]):
+        phase_key = "phase_2"
+        phase_label = "Phase 2: Working Prototype & Code Draft"
+        req_percent = 50
+        is_unlocked = is_midterm_unlocked
+        unlock_msg = "Unlocked with 50% Milestone Payment" if is_unlocked else "Unlocks after 50% milestone payment verified"
+    elif any(k in t for k in ["phase 4", "report", "ieee", "paper", "ppt", "presentation"]):
+        phase_key = "phase_4"
+        phase_label = "Phase 4: Comprehensive IEEE Report & PPT Presentation"
+        req_percent = 100
+        is_unlocked = is_fully_settled
+        unlock_msg = "Unlocked with 100% Final Settlement" if is_unlocked else "Unlocks after 100% full balance settlement"
+    elif any(k in t for k in ["phase 5", "phase 6", "viva", "exam", "defense", "turnitin", "certificate", "walkthrough", "video"]):
+        phase_key = "phase_5"
+        phase_label = "Phase 5: Viva Defense Guide & Turnitin Verification"
+        req_percent = 100
+        is_unlocked = is_fully_settled
+        unlock_msg = "Unlocked with 100% Final Settlement" if is_unlocked else "Unlocks after 100% full balance settlement"
+    else:
+        phase_key = "phase_3"
+        phase_label = "Phase 3: Full Production Source Code Package"
+        req_percent = 100
+        is_unlocked = is_fully_settled
+        unlock_msg = "Unlocked with 100% Final Settlement" if is_unlocked else "Unlocks after 100% full balance settlement"
+
+    return {
+        "id": a.id,
+        "file_name": a.file_name,
+        "file_url": f"/api/orders/{order_id}/download/{a.id}",
+        "raw_file_url": a.file_url,
+        "file_type": a.file_type,
+        "phase": phase_key,
+        "phase_label": phase_label,
+        "required_percent": req_percent,
+        "is_unlocked": is_unlocked,
+        "unlock_msg": unlock_msg,
+        "uploaded_by": a.uploaded_by,
+        "created_at": a.created_at.isoformat() if a.created_at else None
+    }
+
+
 def order_to_dict(order: Order) -> dict:
     pending_sub = None
     try:
@@ -116,6 +165,20 @@ def order_to_dict(order: Order) -> dict:
             pending_sub = next((s for s in subs if getattr(s, "status", None) == "pending"), None)
     except Exception:
         pending_sub = None
+
+    total_price = float(order.total_price or 0.0)
+    balance_amount = float(order.balance_amount or 0.0)
+    advance_amount = float(order.advance_amount or 0.0)
+    total_paid = max(0.0, round(total_price - balance_amount, 2))
+    paid_ratio = (total_paid / total_price) if total_price > 0 else (1.0 if order.status == "completed" else 0.0)
+
+    advance_confirmed = bool(
+        order.advance_paid_at is not None or
+        order.status in ("advance_paid", "in_progress", "ready_for_review", "completed")
+    )
+    is_fully_settled = bool(order.status == "completed" or balance_amount <= 0.01)
+    is_midterm_unlocked = bool(advance_confirmed and (paid_ratio >= 0.49 or is_fully_settled))
+
     return {
         "id": order.id,
         "order_number": order.order_number,
@@ -161,6 +224,29 @@ def order_to_dict(order: Order) -> dict:
         "github_repo_url": order.github_repo_url,
         "deployed_url": order.deployed_url,
         "deployed_at": order.deployed_at.isoformat() if order.deployed_at else None,
+        "milestones": {
+            "advance_confirmed": advance_confirmed,
+            "advance_amount": advance_amount,
+            "total_price": total_price,
+            "balance_amount": balance_amount,
+            "total_paid": total_paid,
+            "paid_percentage": min(100.0, round(paid_ratio * 100, 1)),
+            "phase_1_unlocked": advance_confirmed,
+            "phase_2_unlocked": is_midterm_unlocked,
+            "phase_3_unlocked": is_fully_settled,
+            "phase_4_unlocked": is_fully_settled,
+            "phase_5_unlocked": is_fully_settled,
+            "toolkit": {
+                "uml_diagrams": advance_confirmed,
+                "whatsapp_bot": advance_confirmed,
+                "group_split": True,
+                "readme_docker": is_midterm_unlocked,
+                "interactive_ppt": is_fully_settled,
+                "ieee_paper": is_fully_settled,
+                "github_deploy": is_fully_settled,
+                "turnitin_rewriter": is_fully_settled
+            }
+        },
         "group_members": [
             {
                 "id": gm.id,
@@ -187,15 +273,8 @@ def order_to_dict(order: Order) -> dict:
             "college_branch": order.student.college_branch
         } if order.student else None,
         "attachments": [
-            {
-                "id": a.id,
-                "file_name": a.file_name,
-                "file_url": f"/api/orders/{order.id}/download/{a.id}",
-                "raw_file_url": a.file_url,
-                "file_type": a.file_type,
-                "uploaded_by": a.uploaded_by,
-                "created_at": a.created_at.isoformat() if a.created_at else None
-            } for a in (order.attachments or [])
+            _serialize_attachment(a, order.id, advance_confirmed, is_midterm_unlocked, is_fully_settled)
+            for a in (order.attachments or [])
         ],
         "pending_payment_submission": {
             "id": pending_sub.id,
@@ -768,16 +847,44 @@ def download_order_attachment(
     if user.role == "student" and order.student_id != user.id:
         raise HTTPException(status_code=403, detail="Access denied")
 
-    # Payment check: student cannot download full deliverables until order is completed / fully paid
-    if user.role == "student" and order.status != "completed" and (order.balance_amount or 0) > 0.01:
-        raise HTTPException(
-            status_code=402,
-            detail="Milestone balance payment required before deliverables can be downloaded."
-        )
-
     att = db.query(OrderAttachment).filter(OrderAttachment.id == attachment_id, OrderAttachment.order_id == order_id).first()
     if not att:
         raise HTTPException(status_code=404, detail="Attachment not found")
+
+    # Payment / Milestone check for students:
+    if user.role == "student":
+        total_price = float(order.total_price or 0.0)
+        balance = float(order.balance_amount or 0.0)
+        total_paid = max(0.0, total_price - balance)
+        paid_ratio = (total_paid / total_price) if total_price > 0 else (1.0 if order.status == "completed" else 0.0)
+
+        advance_confirmed = bool(
+            order.advance_paid_at is not None or
+            order.status in ("advance_paid", "in_progress", "ready_for_review", "completed")
+        )
+        is_fully_settled = bool(order.status == "completed" or balance <= 0.01)
+        is_midterm_unlocked = bool(advance_confirmed and (paid_ratio >= 0.49 or is_fully_settled))
+
+        t = f"{att.file_type or ''} {att.file_name or ''}".lower()
+        if any(k in t for k in ["phase 1", "synopsis", "scope", "architecture", "diagram", "srs", "reference", "preview"]):
+            if not advance_confirmed:
+                raise HTTPException(
+                    status_code=402,
+                    detail="Phase 1 deliverables unlock after mentor verifies your 30% advance payment."
+                )
+        elif any(k in t for k in ["phase 2", "prototype", "draft", "mid-term", "midterm", "devops"]):
+            if not is_midterm_unlocked:
+                raise HTTPException(
+                    status_code=402,
+                    detail=f"Phase 2 deliverables unlock after at least 50% milestone payment is verified. Current paid: {round(paid_ratio * 100)}%."
+                )
+        else:
+            # Full source code, final reports, presentation PPT, viva guide, etc.
+            if not is_fully_settled:
+                raise HTTPException(
+                    status_code=402,
+                    detail=f"Full source code and final deliverables unlock upon 100% balance settlement (₹{round(balance, 2)} remaining)."
+                )
 
     from app.config import UPLOAD_DIR_DELIVERABLES, UPLOAD_DIR_REFERENCES
     file_path = None

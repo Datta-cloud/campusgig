@@ -28,7 +28,7 @@ export const AdminOrders: React.FC = () => {
   const [uploadTotalPrice, setUploadTotalPrice] = useState<string>('');
   const [deliverableFile, setDeliverableFile] = useState<File | null>(null);
   const [fileType, setFileType] = useState('deliverable');
-  const [phaseName, setPhaseName] = useState('Phase 2: Source Code ZIP');
+  const [phaseName, setPhaseName] = useState('Phase 1: Project Scope, Synopsis & Architecture');
   const [uploading, setUploading] = useState(false);
 
   // Plagiarism Score Modal
@@ -39,13 +39,13 @@ export const AdminOrders: React.FC = () => {
   const [savingPlag, setSavingPlag] = useState(false);
 
   const PHASES = [
-    { id: 'Phase 1: Working Prototype / Demo Preview', label: '🚀 Phase 1: Working Prototype / Demo Preview (Screenshot/Video)', type: 'preview' },
-    { id: 'Phase 2: Full Source Code Package', label: '📦 Phase 2: Full Source Code Package (ZIP)', type: 'deliverable' },
-    { id: 'Phase 3: Project Report & Documentation', label: '📄 Phase 3: Comprehensive Project Report (IEEE PDF)', type: 'deliverable' },
-    { id: 'Phase 4: Presentation PPT Slides', label: '📊 Phase 4: Presentation PPT Slides (15-20 Slides)', type: 'deliverable' },
-    { id: 'Phase 5: Viva & Exam Defense Guide', label: '🎓 Phase 5: Viva & Exam Defense Preparation Guide (PDF)', type: 'deliverable' },
-    { id: 'Phase 6: Code Walkthrough Video', label: '🎥 Phase 6: Code Walkthrough Video Recording', type: 'deliverable' },
-    { id: 'Reference Material', label: '🛠️ Reference Material / Dataset', type: 'reference' },
+    { id: 'Phase 1: Project Scope, Synopsis & Architecture', label: '📐 Phase 1: Scope, Synopsis & UML Architecture (Unlocked at 30% Advance)', type: 'deliverable' },
+    { id: 'Phase 2: Working Prototype & Code Draft', label: '🚀 Phase 2: Working Prototype & Code Draft (Unlocked at 50% Milestone)', type: 'preview' },
+    { id: 'Phase 3: Full Production Source Code Package', label: '📦 Phase 3: Full Source Code Package (ZIP) (Unlocked at 100% Settlement)', type: 'deliverable' },
+    { id: 'Phase 4: Comprehensive Project Report & IEEE Paper', label: '📄 Phase 4: Comprehensive IEEE Report & PPT Presentation (Unlocked at 100% Settlement)', type: 'deliverable' },
+    { id: 'Phase 5: Viva & Exam Defense Guide', label: '🎓 Phase 5: Viva Defense Guide & Turnitin Verification (Unlocked at 100% Settlement)', type: 'deliverable' },
+    { id: 'Phase 6: Code Walkthrough Video', label: '🎥 Phase 6: Code Walkthrough Video Recording (Unlocked at 100% Settlement)', type: 'deliverable' },
+    { id: 'Reference Material', label: '🛠️ Reference Material / Dataset (Unlocked at 30% Advance)', type: 'reference' },
   ];
 
   const fetchOrders = async () => {
