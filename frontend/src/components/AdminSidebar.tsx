@@ -11,7 +11,7 @@ const navItems = [
   { to: '/admin', icon: LayoutDashboard, label: 'Dashboard', end: true },
   { to: '/admin/orders', icon: ShoppingBag, label: 'Orders' },
   { to: '/admin/chat', icon: MessageCircle, label: 'Live Chats' },
-  { to: '/admin/pricing', icon: DollarSign, label: 'Pricing' },
+  { to: '/admin/pricing', icon: DollarSign, label: 'Pricing & Coupons' },
   { to: '/admin/students', icon: Users, label: 'Students' },
   { to: '/courses', icon: BookOpen, label: 'Courses' },
 ];

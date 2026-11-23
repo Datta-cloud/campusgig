@@ -195,6 +195,49 @@ async def lifespan(app: FastAPI):
             except Exception as mig_err:
                 print(f"⚠️ Wallet reset note: {mig_err}")
 
+            # Ensure coupons table exists and seed default DATTA07
+            try:
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS coupons (
+                        id SERIAL PRIMARY KEY,
+                        code VARCHAR UNIQUE NOT NULL,
+                        discount_percent FLOAT NOT NULL DEFAULT 10.0,
+                        max_uses INTEGER NOT NULL DEFAULT 100,
+                        used_count INTEGER NOT NULL DEFAULT 0,
+                        is_active BOOLEAN DEFAULT TRUE,
+                        description VARCHAR,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """))
+                conn.commit()
+                row = conn.execute(text("SELECT id FROM coupons WHERE code = 'DATTA07'")).first()
+                if not row:
+                    conn.execute(text("INSERT INTO coupons (code, discount_percent, max_uses, used_count, is_active, description) VALUES ('DATTA07', 10.0, 100, 0, true, 'Datta Official Student Promo')"))
+                    conn.commit()
+            except Exception as coup_err:
+                try:
+                    conn.execute(text("""
+                        CREATE TABLE IF NOT EXISTS coupons (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            code VARCHAR UNIQUE NOT NULL,
+                            discount_percent FLOAT NOT NULL DEFAULT 10.0,
+                            max_uses INTEGER NOT NULL DEFAULT 100,
+                            used_count INTEGER NOT NULL DEFAULT 0,
+                            is_active BOOLEAN DEFAULT 1,
+                            description VARCHAR,
+                            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """))
+                    conn.commit()
+                    row = conn.execute(text("SELECT id FROM coupons WHERE code = 'DATTA07'")).first()
+                    if not row:
+                        conn.execute(text("INSERT INTO coupons (code, discount_percent, max_uses, used_count, is_active, description) VALUES ('DATTA07', 10.0, 100, 0, 1, 'Datta Official Student Promo')"))
+                        conn.commit()
+                except Exception as inner_e:
+                    print(f"⚠️ Coupon table setup note: {inner_e}")
+
         seed_database()
     except Exception as e:
         print(f"⚠️ Database startup check: {e}")

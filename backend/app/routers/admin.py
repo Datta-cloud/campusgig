@@ -12,6 +12,7 @@ from app.database import get_db
 from app.models.order import Order
 from app.models.user import User
 from app.models.pricing import PricingConfig
+from app.models.coupon import Coupon
 from app.models.attachment import OrderAttachment
 from app.services.auth_service import require_admin
 from app.config import UPLOAD_DIR_DELIVERABLES, MAX_FILE_SIZE_MB
@@ -161,6 +162,123 @@ def update_pricing(
     db.commit()
     db.refresh(config)
     return {"message": "Pricing config updated", "id": config.id}
+
+
+class CouponCreateRequest(BaseModel):
+    code: str
+    discount_percent: float
+    max_uses: int = 100
+    is_active: bool = True
+    description: Optional[str] = None
+
+
+class CouponUpdateRequest(BaseModel):
+    discount_percent: Optional[float] = None
+    max_uses: Optional[int] = None
+    is_active: Optional[bool] = None
+    description: Optional[str] = None
+
+
+@router.get("/coupons")
+def list_coupons(
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    coupons = db.query(Coupon).order_by(Coupon.id.desc()).all()
+    return [
+        {
+            "id": c.id,
+            "code": c.code,
+            "discount_percent": c.discount_percent,
+            "max_uses": c.max_uses,
+            "used_count": c.used_count or 0,
+            "is_active": c.is_active,
+            "description": c.description,
+            "created_at": c.created_at.isoformat() if c.created_at else None,
+            "updated_at": c.updated_at.isoformat() if c.updated_at else None
+        }
+        for c in coupons
+    ]
+
+
+@router.post("/coupons")
+def create_coupon(
+    req: CouponCreateRequest,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    clean_code = req.code.strip().upper()
+    if not clean_code:
+        raise HTTPException(status_code=400, detail="Coupon code is required")
+    if req.discount_percent <= 0 or req.discount_percent > 100:
+        raise HTTPException(status_code=400, detail="Discount percentage must be between 1 and 100")
+    if req.max_uses < 0:
+        raise HTTPException(status_code=400, detail="Max uses cannot be negative")
+
+    existing = db.query(Coupon).filter(Coupon.code == clean_code).first()
+    if existing:
+        raise HTTPException(status_code=400, detail=f"Coupon code '{clean_code}' already exists")
+
+    coupon = Coupon(
+        code=clean_code,
+        discount_percent=req.discount_percent,
+        max_uses=req.max_uses,
+        used_count=0,
+        is_active=req.is_active,
+        description=req.description
+    )
+    db.add(coupon)
+    db.commit()
+    db.refresh(coupon)
+    return {"message": "Coupon created successfully", "id": coupon.id, "code": coupon.code}
+
+
+@router.put("/coupons/{coupon_id}")
+def update_coupon(
+    coupon_id: int,
+    req: CouponUpdateRequest,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    coupon = db.query(Coupon).filter(Coupon.id == coupon_id).first()
+    if not coupon:
+        raise HTTPException(status_code=404, detail="Coupon not found")
+
+    if req.discount_percent is not None:
+        if req.discount_percent <= 0 or req.discount_percent > 100:
+            raise HTTPException(status_code=400, detail="Discount percentage must be between 1 and 100")
+        coupon.discount_percent = req.discount_percent
+
+    if req.max_uses is not None:
+        if req.max_uses < 0:
+            raise HTTPException(status_code=400, detail="Max uses cannot be negative")
+        coupon.max_uses = req.max_uses
+
+    if req.is_active is not None:
+        coupon.is_active = req.is_active
+
+    if req.description is not None:
+        coupon.description = req.description
+
+    coupon.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(coupon)
+    return {"message": "Coupon updated successfully", "id": coupon.id, "code": coupon.code}
+
+
+@router.delete("/coupons/{coupon_id}")
+def delete_coupon(
+    coupon_id: int,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    coupon = db.query(Coupon).filter(Coupon.id == coupon_id).first()
+    if not coupon:
+        raise HTTPException(status_code=404, detail="Coupon not found")
+    code = coupon.code
+    db.delete(coupon)
+    db.commit()
+    return {"message": f"Coupon '{code}' deleted successfully"}
 
 
 @router.get("/students")

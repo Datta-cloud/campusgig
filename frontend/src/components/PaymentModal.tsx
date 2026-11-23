@@ -74,16 +74,25 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   // Generate dynamic QR image url containing the direct UPI intent payload
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(upiIntentUrl)}`;
 
-  const handleApplyCoupon = (e?: React.FormEvent) => {
+  const handleApplyCoupon = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const code = couponInput.trim().toUpperCase();
     if (!code) return;
-    if (code === 'DATTA07') {
-      setAppliedCoupon('DATTA07');
-      setCouponDiscountPercent(10);
-      setCouponMsg({ text: '🎉 Coupon DATTA07 applied! 10% discount applied.', type: 'success' });
-    } else {
-      setCouponMsg({ text: "❌ Invalid coupon. Use 'DATTA07' for 10% discount!", type: 'error' });
+    try {
+      const res = await api.post('/orders/validate-coupon', { code });
+      setAppliedCoupon(res.data.code);
+      setCouponDiscountPercent(res.data.discount_percent);
+      setCouponMsg({
+        text: res.data.message || `🎉 Coupon ${res.data.code} applied! ${res.data.discount_percent}% discount applied.`,
+        type: 'success'
+      });
+    } catch (err: any) {
+      setAppliedCoupon(null);
+      setCouponDiscountPercent(0);
+      setCouponMsg({
+        text: err.response?.data?.detail || "❌ Invalid or inactive coupon code. Please check and try again.",
+        type: 'error'
+      });
     }
   };
 
@@ -235,7 +244,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                   value={couponInput}
                   onChange={e => setCouponInput(e.target.value.toUpperCase())}
                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleApplyCoupon(); } }}
-                  placeholder="Enter coupon (e.g. DATTA07)"
+                  placeholder="Enter promo coupon code"
                   className="flex-1 input-field text-xs font-mono uppercase bg-white"
                 />
                 <button
@@ -250,7 +259,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               <div className="flex items-center justify-between bg-white p-2.5 rounded-xl border border-emerald-200">
                 <div className="text-xs">
                   <span className="font-mono font-black text-emerald-700">{appliedCoupon}</span>
-                  <span className="text-slate-600 ml-2 font-medium">(-₹{discountAmount} / 10% off)</span>
+                  <span className="text-slate-600 ml-2 font-medium">(-₹{discountAmount} / {couponDiscountPercent}% off)</span>
                 </div>
                 <button
                   type="button"
@@ -267,8 +276,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 {couponMsg.text}
               </p>
             ) : (
-              <p className="text-[10px] text-amber-700">
-                Use coupon <strong>DATTA07</strong> to get an instant 10% discount on this payment!
+              <p className="text-[10px] text-slate-500">
+                Got a promo coupon? Enter above and click Apply.
               </p>
             )}
           </div>

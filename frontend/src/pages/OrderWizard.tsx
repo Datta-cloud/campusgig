@@ -151,27 +151,39 @@ export const OrderWizard: React.FC = () => {
   // Coupon state
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
+  const [couponDiscountPercent, setCouponDiscountPercent] = useState<number>(0);
   const [couponMsg, setCouponMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
-  const effectiveTotal = appliedCoupon ? Math.round(pricing.total * 0.90) : pricing.total;
-  const effectiveAdvance = appliedCoupon ? Math.round(pricing.advance * 0.90) : pricing.advance;
+  const effectiveTotal = appliedCoupon ? Math.round(pricing.total * (1 - couponDiscountPercent / 100)) : pricing.total;
+  const effectiveAdvance = appliedCoupon ? Math.round(pricing.advance * (1 - couponDiscountPercent / 100)) : pricing.advance;
   const effectiveBalance = Math.max(0, effectiveTotal - effectiveAdvance);
   const totalDiscount = pricing.total - effectiveTotal;
 
-  const handleApplyCoupon = (e?: React.FormEvent) => {
+  const handleApplyCoupon = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const code = couponCode.trim().toUpperCase();
     if (!code) return;
-    if (code === 'DATTA07') {
-      setAppliedCoupon('DATTA07');
-      setCouponMsg({ text: '🎉 Coupon DATTA07 applied! 10% discount on total & advance.', type: 'success' });
-    } else {
-      setCouponMsg({ text: "❌ Invalid coupon. Use 'DATTA07' for 10% discount!", type: 'error' });
+    try {
+      const res = await api.post('/orders/validate-coupon', { code });
+      setAppliedCoupon(res.data.code);
+      setCouponDiscountPercent(res.data.discount_percent);
+      setCouponMsg({
+        text: res.data.message || `🎉 Coupon ${res.data.code} applied! ${res.data.discount_percent}% discount applied.`,
+        type: 'success'
+      });
+    } catch (err: any) {
+      setAppliedCoupon(null);
+      setCouponDiscountPercent(0);
+      setCouponMsg({
+        text: err.response?.data?.detail || "❌ Invalid or inactive coupon code.",
+        type: 'error'
+      });
     }
   };
 
   const handleRemoveCoupon = () => {
     setAppliedCoupon(null);
+    setCouponDiscountPercent(0);
     setCouponCode('');
     setCouponMsg(null);
   };
@@ -978,7 +990,7 @@ export const OrderWizard: React.FC = () => {
               </span>
               {appliedCoupon && (
                 <span className="inline-block mt-2 bg-emerald-500/30 border border-emerald-300/40 text-emerald-100 text-[11px] font-bold px-3 py-1 rounded-full">
-                  🎉 Coupon DATTA07 Active: 10% Off (-₹{totalDiscount})
+                  🎉 Coupon {appliedCoupon} Active: {couponDiscountPercent}% Off (-₹{totalDiscount})
                 </span>
               )}
             </div>
@@ -987,11 +999,11 @@ export const OrderWizard: React.FC = () => {
             <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
-                  <Tag className="w-4 h-4 text-amber-600" /> Have a Coupon Code?
+                  <Tag className="w-4 h-4 text-amber-600" /> Have a Promo Coupon?
                 </span>
                 {appliedCoupon && (
                   <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3 text-emerald-600" /> 10% OFF APPLIED
+                    <CheckCircle2 className="w-3 h-3 text-emerald-600" /> {couponDiscountPercent}% OFF APPLIED
                   </span>
                 )}
               </div>
@@ -1003,7 +1015,7 @@ export const OrderWizard: React.FC = () => {
                     value={couponCode}
                     onChange={e => setCouponCode(e.target.value.toUpperCase())}
                     onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleApplyCoupon(); } }}
-                    placeholder="Enter Coupon (e.g. DATTA07)"
+                    placeholder="Enter promo coupon code"
                     className="flex-1 input-field text-xs font-mono uppercase bg-white"
                   />
                   <button
@@ -1018,7 +1030,7 @@ export const OrderWizard: React.FC = () => {
                 <div className="flex items-center justify-between bg-white p-2.5 rounded-xl border border-emerald-200">
                   <div className="text-xs">
                     <span className="font-mono font-black text-emerald-700">{appliedCoupon}</span>
-                    <span className="text-slate-600 ml-2 font-medium">(-₹{totalDiscount} / 10% discount on total fee)</span>
+                    <span className="text-slate-600 ml-2 font-medium">(-₹{totalDiscount} / {couponDiscountPercent}% discount applied)</span>
                   </div>
                   <button
                     type="button"
@@ -1035,8 +1047,8 @@ export const OrderWizard: React.FC = () => {
                   {couponMsg.text}
                 </p>
               ) : (
-                <p className="text-[10px] text-amber-700">
-                  Apply coupon <strong>DATTA07</strong> to get an instant 10% discount on this booking!
+                <p className="text-[10px] text-slate-500">
+                  Optional: Enter your discount coupon code above.
                 </p>
               )}
             </div>

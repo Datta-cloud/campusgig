@@ -81,6 +81,10 @@ class PaymentConfirmRequest(BaseModel):
     discount_amount: Optional[float] = 0.0
 
 
+class ValidateCouponRequest(BaseModel):
+    code: str
+
+
 class RevisionRequest(BaseModel):
     notes: str
 
@@ -196,6 +200,35 @@ def calculate_price(req: PriceCalcRequest, db: Session = Depends(get_db)):
         return result
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/validate-coupon")
+def validate_coupon_endpoint(req: ValidateCouponRequest, db: Session = Depends(get_db)):
+    clean_code = req.code.strip().upper()
+    if not clean_code:
+        raise HTTPException(status_code=400, detail="Please enter a coupon code.")
+
+    from app.models.coupon import Coupon
+    coupon = db.query(Coupon).filter(Coupon.code == clean_code).first()
+    if not coupon:
+        raise HTTPException(status_code=404, detail="Invalid coupon code. Please check and try again.")
+
+    if not coupon.is_active:
+        raise HTTPException(status_code=400, detail="This coupon code is currently inactive.")
+
+    if coupon.max_uses > 0 and (coupon.used_count or 0) >= coupon.max_uses:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Coupon '{coupon.code}' has reached its maximum redemption limit ({coupon.max_uses} uses)."
+        )
+
+    return {
+        "valid": True,
+        "code": coupon.code,
+        "discount_percent": coupon.discount_percent,
+        "description": coupon.description or f"Flat {coupon.discount_percent}% off",
+        "message": f"🎉 Coupon '{coupon.code}' applied! Flat {coupon.discount_percent}% discount applied."
+    }
 
 
 @router.post("/refine-scope")
@@ -402,7 +435,15 @@ def confirm_payment(
 
     # Apply Coupon & discount if provided
     if req.coupon_code:
-        order.coupon_code = req.coupon_code.strip().upper()
+        clean_coupon = req.coupon_code.strip().upper()
+        order.coupon_code = clean_coupon
+        try:
+            from app.models.coupon import Coupon
+            cpn = db.query(Coupon).filter(Coupon.code == clean_coupon).first()
+            if cpn:
+                cpn.used_count = (cpn.used_count or 0) + 1
+        except Exception:
+            pass
     if req.discount_amount and req.discount_amount > 0:
         order.discount_amount = float(req.discount_amount)
         # Apply discount to total_price and balance_amount
