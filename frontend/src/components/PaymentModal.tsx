@@ -41,6 +41,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
   const [couponDiscountPercent, setCouponDiscountPercent] = useState<number>(0);
   const [couponMsg, setCouponMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [upiTrRef, setUpiTrRef] = useState<string>(() => `CG${(orderNumber || 'ORD').replace(/[^a-zA-Z0-9]/g, '')}${Date.now().toString().slice(-6)}`);
 
   useEffect(() => {
     if (isOpen) {
@@ -51,28 +52,33 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       setAppliedCoupon(null);
       setCouponDiscountPercent(0);
       setCouponMsg(null);
+      setUpiTrRef(`CG${(orderNumber || 'ORD').replace(/[^a-zA-Z0-9]/g, '')}${Date.now().toString().slice(-6)}`);
       api.get('/orders/user/payment-quota')
         .then(res => setQuota(res.data))
         .catch(() => {});
     }
-  }, [isOpen, amount]);
+  }, [isOpen, amount, orderNumber]);
 
   if (!isOpen) return null;
 
-  // Amount before coupon
-  const basePayAmount = paymentType === 'advance' ? amount : Math.max(1, Math.min(balanceAmount, customPayAmount || 1));
+  // Base amount before coupon
+  const rawBase = paymentType === 'advance'
+    ? Number(amount || 0)
+    : (customPayAmount > 0 ? Math.min(Number(balanceAmount || 0), customPayAmount) : Number(balanceAmount || 0));
+  const basePayAmount = Math.round(rawBase * 100) / 100;
   
-  // 10% off if DATTA07 applied
-  const discountAmount = appliedCoupon ? Math.round(basePayAmount * (couponDiscountPercent / 100)) : 0;
-  const currentPayAmount = Math.max(1, basePayAmount - discountAmount);
-  const remainingAfterPayment = Math.max(0, balanceAmount - currentPayAmount);
+  // 10% off if coupon applied
+  const discountAmount = appliedCoupon
+    ? Math.round(basePayAmount * (couponDiscountPercent / 100) * 100) / 100
+    : 0;
+  const currentPayAmount = Math.max(0.01, Math.round((basePayAmount - discountAmount) * 100) / 100);
+  const remainingAfterPayment = Math.max(0, Math.round((Number(balanceAmount || 0) - currentPayAmount) * 100) / 100);
 
   const payeeVpa = '7020209079@ybl';
   const payeeName = 'Dattatray Goraksh Hadke';
-  const [upiTrRef] = useState(() => `CG${(orderNumber || 'ORD').replace(/[^a-zA-Z0-9]/g, '')}${Date.now().toString().slice(-6)}`);
 
   // Direct NPCI UPI Intent URL for GPay, PhonePe, Paytm, BHIM with dynamic discounted amount, note & unique tr
-  const upiIntentUrl = `upi://pay?pa=${encodeURIComponent(payeeVpa)}&pn=${encodeURIComponent(payeeName)}&am=${currentPayAmount}&cu=INR&tn=${encodeURIComponent('Order ' + orderNumber)}&tr=${upiTrRef}`;
+  const upiIntentUrl = `upi://pay?pa=${encodeURIComponent(payeeVpa)}&pn=${encodeURIComponent(payeeName)}&am=${currentPayAmount.toFixed(2)}&cu=INR&tn=${encodeURIComponent('Order ' + orderNumber)}&tr=${upiTrRef}`;
 
   // Generate dynamic QR image url containing the direct UPI intent payload
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(upiIntentUrl)}`;
@@ -152,7 +158,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         if (res.data.is_fully_paid) {
           alert(`🎉 Full balance settled! All uncompressed source code files and deliverables are 100% unlocked.`);
         } else {
-          alert(`💳 Partial payment of ₹${currentPayAmount} recorded! Remaining payable balance is ₹${res.data.remaining_balance}.`);
+          alert(`✅ Balance payment of ₹${currentPayAmount} submitted (UTR: ${cleanUtr})! Mentor is verifying the transaction receipt against bank statement.`);
         }
       }
       onSuccess();
@@ -296,7 +302,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                   <span className="absolute left-3.5 top-2.5 text-slate-500 font-bold text-xs">₹</span>
                   <input
                     type="number"
-                    min={1}
+                    step="0.01"
+                    min="0.01"
                     max={balanceAmount}
                     value={customPayAmount}
                     onChange={e => setCustomPayAmount(Number(e.target.value))}

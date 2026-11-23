@@ -112,6 +112,23 @@ export const OrderDetail: React.FC = () => {
     }
   };
 
+  const handleAdminVerifyPayment = async (action: 'approve' | 'reject') => {
+    if (!order) return;
+    let reason: string | undefined = undefined;
+    if (action === 'reject') {
+      const promptRes = window.prompt("Reason for rejecting payment (e.g., UTR not received in bank account):");
+      if (promptRes === null) return;
+      reason = promptRes || "Payment verification failed";
+    }
+    try {
+      await api.post(`/admin/orders/${order.id}/verify-payment`, { action, notes: reason });
+      alert(action === 'approve' ? '✅ Payment verified and credited successfully!' : '❌ Payment rejected.');
+      fetchOrder();
+    } catch (err: any) {
+      alert(getErrorMessage(err, 'Failed to verify payment'));
+    }
+  };
+
   const fetchOrder = async () => {
     try {
       const res = await api.get(`/orders/${id}`);
@@ -273,17 +290,30 @@ export const OrderDetail: React.FC = () => {
               <Sparkles className="w-4 h-4" /> Viva Prep AI
             </button>
 
-            {order.status !== 'pending_payment' && order.balance_amount > 0 && (
+            {order.status === 'balance_submitted' ? (
               <button
                 type="button"
                 onClick={() => {
                   setPaymentModalType('balance');
                   setPaymentModalOpen(true);
                 }}
-                className="btn-accent flex items-center gap-1.5 px-4 py-2 text-xs font-bold shadow-md shadow-purple-500/20"
+                className="bg-amber-100 hover:bg-amber-200 text-amber-800 flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl border border-amber-300 shadow-sm"
               >
-                <ShieldCheck className="w-4 h-4" /> Pay Balance (₹{order.balance_amount} Due)
+                <Clock className="w-4 h-4 text-amber-600 animate-pulse" /> Balance Verification Underway (₹{order.balance_amount} Due)
               </button>
+            ) : (
+              order.status !== 'pending_payment' && order.balance_amount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPaymentModalType('balance');
+                    setPaymentModalOpen(true);
+                  }}
+                  className="btn-accent flex items-center gap-1.5 px-4 py-2 text-xs font-bold shadow-md shadow-purple-500/20"
+                >
+                  <ShieldCheck className="w-4 h-4" /> Pay Balance (₹{order.balance_amount} Due)
+                </button>
+              )
             )}
 
             {order.status !== 'pending_payment' && order.balance_amount <= 0 && (
@@ -308,7 +338,7 @@ export const OrderDetail: React.FC = () => {
             </div>
 
             <div className={`p-3.5 rounded-xl border ${
-              ['in_progress', 'ready_for_review', 'completed'].includes(order.status)
+              ['in_progress', 'ready_for_review', 'completed', 'balance_submitted'].includes(order.status)
                 ? 'bg-blue-50 border-blue-200 text-blue-900'
                 : 'bg-slate-50 border-slate-200 text-slate-400'
             }`}>
@@ -320,7 +350,7 @@ export const OrderDetail: React.FC = () => {
             </div>
 
             <div className={`p-3.5 rounded-xl border ${
-              ['ready_for_review', 'completed'].includes(order.status)
+              ['ready_for_review', 'completed', 'balance_submitted'].includes(order.status)
                 ? 'bg-purple-50 border-purple-200 text-purple-900'
                 : 'bg-slate-50 border-slate-200 text-slate-400'
             }`}>
@@ -334,13 +364,22 @@ export const OrderDetail: React.FC = () => {
             <div className={`p-3.5 rounded-xl border ${
               order.status === 'completed'
                 ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                : order.status === 'balance_submitted'
+                ? 'bg-amber-50 border-amber-200 text-amber-900'
                 : 'bg-slate-50 border-slate-200 text-slate-400'
             }`}>
               <span className="text-[10px] font-bold uppercase block">Milestone 4</span>
               <span className="text-xs font-bold flex items-center gap-1 mt-1">
-                <ShieldCheck className="w-4 h-4" /> 70% Balance & Unlock
+                {order.status === 'balance_submitted' ? (
+                  <Clock className="w-4 h-4 text-amber-600 animate-pulse" />
+                ) : (
+                  <ShieldCheck className="w-4 h-4" />
+                )}
+                {order.status === 'completed' ? '70% Balance Settled' : order.status === 'balance_submitted' ? 'Balance Under Verification' : '70% Balance & Unlock'}
               </span>
-              <span className="text-[10px]">Final deliverables downloaded</span>
+              <span className="text-[10px]">
+                {order.status === 'completed' ? 'All deliverables 100% unlocked' : order.status === 'balance_submitted' ? 'Admin verifying bank statement' : 'Final deliverables downloaded'}
+              </span>
             </div>
 
           </div>
@@ -348,16 +387,71 @@ export const OrderDetail: React.FC = () => {
 
         {/* Payment Verification Pending Banner */}
         {order.status === 'payment_submitted' && (
-          <div className="bg-amber-50 border border-amber-200 p-5 rounded-2xl flex items-center gap-4 text-amber-900 animate-slide-up">
-            <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-amber-500/20">
-              <Clock className="w-5 h-5" />
+          <div className="bg-amber-50 border border-amber-200 p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-amber-900 animate-slide-up">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-amber-500/20">
+                <Clock className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="font-bold text-sm">Advance Payment Under Bank Verification ⏳</h4>
+                <p className="text-xs text-amber-800 mt-0.5">
+                  Transaction reference <strong>UTR: {order.utr_number}</strong> was received. Mentor is verifying transaction receipt in the bank statement. Project milestones will unlock immediately upon approval.
+                </p>
+              </div>
             </div>
-            <div>
-              <h4 className="font-bold text-sm">Payment Under Bank Verification ⏳</h4>
-              <p className="text-xs text-amber-800 mt-0.5">
-                Transaction reference <strong>UTR: {order.utr_number}</strong> was received. Mentor is verifying transaction receipt in the bank statement. Project milestones will unlock immediately upon approval.
-              </p>
+            {user?.role === 'admin' && (
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleAdminVerifyPayment('approve')}
+                  className="btn-primary text-xs px-3.5 py-2 font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm flex items-center gap-1.5"
+                >
+                  <CheckCircle2 className="w-4 h-4" /> Approve ₹{order.advance_amount}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAdminVerifyPayment('reject')}
+                  className="btn-secondary text-xs px-3 py-2 font-bold text-red-600 hover:bg-red-50 flex items-center gap-1 border border-red-200"
+                >
+                  <X className="w-4 h-4" /> Reject
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Balance Verification Pending Banner */}
+        {order.status === 'balance_submitted' && (
+          <div className="bg-indigo-50 border border-indigo-200 p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-indigo-900 animate-slide-up">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-indigo-500/20">
+                <Clock className="w-5 h-5 animate-pulse" />
+              </div>
+              <div>
+                <h4 className="font-bold text-sm">Balance Payment Verification Underway ⏳</h4>
+                <p className="text-xs text-indigo-800 mt-0.5">
+                  Transaction reference <strong>UTR: {order.utr_number}</strong> was received. Mentor is verifying transaction receipt in the bank statement. Full deliverables will unlock immediately upon approval.
+                </p>
+              </div>
             </div>
+            {user?.role === 'admin' && (
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleAdminVerifyPayment('approve')}
+                  className="btn-primary text-xs px-3.5 py-2 font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm flex items-center gap-1.5"
+                >
+                  <CheckCircle2 className="w-4 h-4" /> Approve Balance
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAdminVerifyPayment('reject')}
+                  className="btn-secondary text-xs px-3 py-2 font-bold text-red-600 hover:bg-red-50 flex items-center gap-1 border border-red-200"
+                >
+                  <X className="w-4 h-4" /> Reject
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -1446,18 +1540,20 @@ export const OrderDetail: React.FC = () => {
           onSuccess={fetchOrder}
         />
 
-        <PaymentModal
-          isOpen={paymentModalOpen}
-          onClose={() => setPaymentModalOpen(false)}
-          orderId={order.id}
-          orderNumber={order.order_number}
-          amount={paymentModalType === 'advance' ? order.advance_amount : order.balance_amount}
-          totalPrice={order.total_price}
-          advanceAmount={order.advance_amount}
-          balanceAmount={order.balance_amount}
-          paymentType={paymentModalType}
-          onSuccess={fetchOrder}
-        />
+        {paymentModalOpen && (
+          <PaymentModal
+            isOpen={paymentModalOpen}
+            onClose={() => setPaymentModalOpen(false)}
+            orderId={order.id}
+            orderNumber={order.order_number}
+            amount={paymentModalType === 'advance' ? order.advance_amount : order.balance_amount}
+            totalPrice={order.total_price}
+            advanceAmount={order.advance_amount}
+            balanceAmount={order.balance_amount}
+            paymentType={paymentModalType}
+            onSuccess={fetchOrder}
+          />
+        )}
 
         <PresentationModal
           isOpen={presentationModalOpen}
