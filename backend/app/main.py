@@ -149,8 +149,22 @@ def seed_database():
                 )
                 db.add(config)
 
+        # Seed default coupon DATTA07
+        from app.models.coupon import Coupon
+        datta_coupon = db.query(Coupon).filter(Coupon.code == "DATTA07").first()
+        if not datta_coupon:
+            datta_coupon = Coupon(
+                code="DATTA07",
+                discount_percent=10.0,
+                max_uses=100,
+                used_count=0,
+                is_active=True,
+                description="Datta Official Student Promo"
+            )
+            db.add(datta_coupon)
+
         db.commit()
-        print("✓ Pricing configs seeded")
+        print("✓ Pricing configs and default coupons seeded")
     except Exception as e:
         db.rollback()
         print(f"Seed error: {e}")
