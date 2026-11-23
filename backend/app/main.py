@@ -181,34 +181,34 @@ async def lifespan(app: FastAPI):
         print("✓ Database tables created")
 
         # Safe automatic schema migrations for newly added columns (Postgres & SQLite compatible)
-        with engine.connect() as conn:
-            columns_to_add = [
-                ("orders", "walkthrough_count", "INTEGER DEFAULT 0"),
-                ("orders", "walkthrough_scheduled_at", "TIMESTAMP"),
-                ("orders", "walkthrough_meeting_url", "VARCHAR"),
-                ("orders", "coupon_code", "VARCHAR"),
-                ("orders", "discount_amount", "FLOAT DEFAULT 0.0"),
-                ("orders", "payment_verified", "BOOLEAN DEFAULT FALSE"),
-                ("orders", "certificate_id", "VARCHAR"),
-                ("orders", "certificate_issued_at", "TIMESTAMP"),
-                ("orders", "github_repo_url", "VARCHAR"),
-                ("orders", "deployed_url", "VARCHAR"),
-                ("orders", "deployed_at", "TIMESTAMP"),
-                ("orders", "plagiarism_score", "FLOAT"),
-                ("orders", "ai_detection_score", "FLOAT"),
-                ("orders", "plagiarism_report_url", "VARCHAR"),
-                ("order_group_members", "qr_token", "VARCHAR"),
-                ("users", "wallet_balance", "FLOAT DEFAULT 0.0"),
-            ]
-            for table, col, col_def in columns_to_add:
-                try:
-                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {col_def}"))
-                    conn.commit()
-                except Exception:
-                    pass
-
-            # Ensure payment_submissions table exists (Postgres & SQLite)
+        columns_to_add = [
+            ("orders", "walkthrough_count", "INTEGER DEFAULT 0"),
+            ("orders", "walkthrough_scheduled_at", "TIMESTAMP"),
+            ("orders", "walkthrough_meeting_url", "VARCHAR"),
+            ("orders", "coupon_code", "VARCHAR"),
+            ("orders", "discount_amount", "FLOAT DEFAULT 0.0"),
+            ("orders", "payment_verified", "BOOLEAN DEFAULT FALSE"),
+            ("orders", "certificate_id", "VARCHAR"),
+            ("orders", "certificate_issued_at", "TIMESTAMP"),
+            ("orders", "github_repo_url", "VARCHAR"),
+            ("orders", "deployed_url", "VARCHAR"),
+            ("orders", "deployed_at", "TIMESTAMP"),
+            ("orders", "plagiarism_score", "FLOAT"),
+            ("orders", "ai_detection_score", "FLOAT"),
+            ("orders", "plagiarism_report_url", "VARCHAR"),
+            ("order_group_members", "qr_token", "VARCHAR"),
+            ("users", "wallet_balance", "FLOAT DEFAULT 0.0"),
+        ]
+        for table, col, col_def in columns_to_add:
             try:
+                with engine.begin() as conn:
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {col_def}"))
+            except Exception:
+                pass
+
+        # Ensure payment_submissions table exists (Postgres & SQLite)
+        try:
+            with engine.begin() as conn:
                 conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS payment_submissions (
                         id SERIAL PRIMARY KEY,
@@ -223,9 +223,9 @@ async def lifespan(app: FastAPI):
                         verified_at TIMESTAMP
                     )
                 """))
-                conn.commit()
-            except Exception:
-                try:
+        except Exception:
+            try:
+                with engine.begin() as conn:
                     conn.execute(text("""
                         CREATE TABLE IF NOT EXISTS payment_submissions (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -240,12 +240,12 @@ async def lifespan(app: FastAPI):
                             verified_at DATETIME
                         )
                     """))
-                    conn.commit()
-                except Exception:
-                    pass
+            except Exception as e:
+                print(f"⚠️ payment_submissions table note: {e}")
 
-            # Reset default artificial wallet balances to 0.0 for users without referrals
-            try:
+        # Reset default artificial wallet balances to 0.0 for users without referrals
+        try:
+            with engine.begin() as conn:
                 conn.execute(text("""
                     UPDATE users 
                     SET wallet_balance = 0.0 
@@ -255,12 +255,12 @@ async def lifespan(app: FastAPI):
                         JOIN users ref ON ref.referred_by = u.referral_code
                     )
                 """))
-                conn.commit()
-            except Exception as mig_err:
-                print(f"⚠️ Wallet reset note: {mig_err}")
+        except Exception as mig_err:
+            print(f"⚠️ Wallet reset note: {mig_err}")
 
-            # Ensure coupons table exists and seed default DATTA07
-            try:
+        # Ensure coupons table exists and seed default DATTA07
+        try:
+            with engine.begin() as conn:
                 conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS coupons (
                         id SERIAL PRIMARY KEY,
@@ -274,13 +274,12 @@ async def lifespan(app: FastAPI):
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 """))
-                conn.commit()
                 row = conn.execute(text("SELECT id FROM coupons WHERE code = 'DATTA07'")).first()
                 if not row:
                     conn.execute(text("INSERT INTO coupons (code, discount_percent, max_uses, used_count, is_active, description) VALUES ('DATTA07', 10.0, 100, 0, true, 'Datta Official Student Promo')"))
-                    conn.commit()
-            except Exception as coup_err:
-                try:
+        except Exception:
+            try:
+                with engine.begin() as conn:
                     conn.execute(text("""
                         CREATE TABLE IF NOT EXISTS coupons (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -294,13 +293,11 @@ async def lifespan(app: FastAPI):
                             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
                         )
                     """))
-                    conn.commit()
                     row = conn.execute(text("SELECT id FROM coupons WHERE code = 'DATTA07'")).first()
                     if not row:
                         conn.execute(text("INSERT INTO coupons (code, discount_percent, max_uses, used_count, is_active, description) VALUES ('DATTA07', 10.0, 100, 0, 1, 'Datta Official Student Promo')"))
-                        conn.commit()
-                except Exception as inner_e:
-                    print(f"⚠️ Coupon table setup note: {inner_e}")
+            except Exception as inner_e:
+                print(f"⚠️ Coupon table setup note: {inner_e}")
 
         seed_database()
     except Exception as e:

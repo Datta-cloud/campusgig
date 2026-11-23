@@ -109,7 +109,13 @@ def generate_order_number(db: Session) -> str:
 
 
 def order_to_dict(order: Order) -> dict:
-    pending_sub = next((s for s in (order.payment_submissions or []) if s.status == "pending"), None)
+    pending_sub = None
+    try:
+        subs = getattr(order, "payment_submissions", None)
+        if subs:
+            pending_sub = next((s for s in subs if getattr(s, "status", None) == "pending"), None)
+    except Exception:
+        pending_sub = None
     return {
         "id": order.id,
         "order_number": order.order_number,
@@ -246,16 +252,23 @@ def get_user_payment_quota(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-    used_count = db.query(PaymentSubmission).filter(
-        PaymentSubmission.student_id == current_user.id,
-        PaymentSubmission.created_at >= thirty_days_ago
-    ).count()
-    return {
-        "monthly_limit": 3,
-        "used": used_count,
-        "remaining": max(0, 3 - used_count)
-    }
+    try:
+        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+        used_count = db.query(PaymentSubmission).filter(
+            PaymentSubmission.student_id == current_user.id,
+            PaymentSubmission.created_at >= thirty_days_ago
+        ).count()
+        return {
+            "monthly_limit": 3,
+            "used": used_count,
+            "remaining": max(0, 3 - used_count)
+        }
+    except Exception:
+        return {
+            "monthly_limit": 3,
+            "used": 0,
+            "remaining": 3
+        }
 
 
 @router.post("/refine-scope")
@@ -442,16 +455,21 @@ def confirm_payment(
 
     # Monthly submission limit check (Max 3 submissions per month per student)
     if current_user.role != "admin":
-        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-        user_submissions_count = db.query(PaymentSubmission).filter(
-            PaymentSubmission.student_id == current_user.id,
-            PaymentSubmission.created_at >= thirty_days_ago
-        ).count()
-        if user_submissions_count >= 3:
-            raise HTTPException(
-                status_code=429,
-                detail="Monthly payment submission limit reached (Maximum 3 submissions per month). Please contact admin for manual assistance."
-            )
+        try:
+            thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+            user_submissions_count = db.query(PaymentSubmission).filter(
+                PaymentSubmission.student_id == current_user.id,
+                PaymentSubmission.created_at >= thirty_days_ago
+            ).count()
+            if user_submissions_count >= 3:
+                raise HTTPException(
+                    status_code=429,
+                    detail="Monthly payment submission limit reached (Maximum 3 submissions per month). Please contact admin for manual assistance."
+                )
+        except HTTPException:
+            raise
+        except Exception:
+            pass
 
     # 1. Validate UTR is present
     if not req.utr_number or not req.utr_number.strip():
@@ -477,15 +495,20 @@ def confirm_payment(
             detail=f"This UPI UTR reference ({clean_utr}) has already been submitted for order {duplicate_order.order_number}. Duplicate transactions are strictly prohibited."
         )
 
-    duplicate_sub = db.query(PaymentSubmission).filter(
-        PaymentSubmission.utr_number == clean_utr,
-        PaymentSubmission.order_id != order.id
-    ).first()
-    if duplicate_sub:
-        raise HTTPException(
-            status_code=400,
-            detail=f"This UPI UTR reference ({clean_utr}) has already been submitted for payment. Duplicate transactions are strictly prohibited."
-        )
+    try:
+        duplicate_sub = db.query(PaymentSubmission).filter(
+            PaymentSubmission.utr_number == clean_utr,
+            PaymentSubmission.order_id != order.id
+        ).first()
+        if duplicate_sub:
+            raise HTTPException(
+                status_code=400,
+                detail=f"This UPI UTR reference ({clean_utr}) has already been submitted for payment. Duplicate transactions are strictly prohibited."
+            )
+    except HTTPException:
+        raise
+    except Exception:
+        pass
 
     order.payment_method = req.payment_method
     order.utr_number = clean_utr
@@ -526,16 +549,19 @@ def confirm_payment(
         msg = f"Payment receipt (UTR: {clean_utr}) submitted for order {order.order_number}. Mentor is verifying the transaction against the bank statement."
 
     # Record Payment Submission
-    submission = PaymentSubmission(
-        order_id=order.id,
-        student_id=current_user.id,
-        payment_type="advance",
-        amount=order.advance_amount,
-        utr_number=clean_utr,
-        status="approved" if current_user.role == "admin" else "pending",
-        verified_at=datetime.utcnow() if current_user.role == "admin" else None
-    )
-    db.add(submission)
+    try:
+        submission = PaymentSubmission(
+            order_id=order.id,
+            student_id=current_user.id,
+            payment_type="advance",
+            amount=order.advance_amount,
+            utr_number=clean_utr,
+            status="approved" if current_user.role == "admin" else "pending",
+            verified_at=datetime.utcnow() if current_user.role == "admin" else None
+        )
+        db.add(submission)
+    except Exception:
+        pass
 
     db.commit()
     db.refresh(order)
@@ -1017,16 +1043,21 @@ def pay_order_balance(
 
     # Monthly submission limit check (Max 3 submissions per month per student)
     if current_user.role != "admin":
-        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-        user_submissions_count = db.query(PaymentSubmission).filter(
-            PaymentSubmission.student_id == current_user.id,
-            PaymentSubmission.created_at >= thirty_days_ago
-        ).count()
-        if user_submissions_count >= 3:
-            raise HTTPException(
-                status_code=429,
-                detail="Monthly payment submission limit reached (Maximum 3 submissions per month). Please contact admin for manual assistance."
-            )
+        try:
+            thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+            user_submissions_count = db.query(PaymentSubmission).filter(
+                PaymentSubmission.student_id == current_user.id,
+                PaymentSubmission.created_at >= thirty_days_ago
+            ).count()
+            if user_submissions_count >= 3:
+                raise HTTPException(
+                    status_code=429,
+                    detail="Monthly payment submission limit reached (Maximum 3 submissions per month). Please contact admin for manual assistance."
+                )
+        except HTTPException:
+            raise
+        except Exception:
+            pass
 
     if req.amount <= 0:
         raise HTTPException(status_code=400, detail="Payment amount must be greater than 0")
@@ -1053,15 +1084,20 @@ def pay_order_balance(
             detail=f"This UPI UTR reference ({clean_utr}) has already been submitted for order {duplicate_order.order_number}. Duplicate transactions are strictly prohibited."
         )
 
-    duplicate_sub = db.query(PaymentSubmission).filter(
-        PaymentSubmission.utr_number == clean_utr,
-        PaymentSubmission.order_id != order.id
-    ).first()
-    if duplicate_sub:
-        raise HTTPException(
-            status_code=400,
-            detail=f"This UPI UTR reference ({clean_utr}) has already been submitted for payment. Duplicate transactions are strictly prohibited."
-        )
+    try:
+        duplicate_sub = db.query(PaymentSubmission).filter(
+            PaymentSubmission.utr_number == clean_utr,
+            PaymentSubmission.order_id != order.id
+        ).first()
+        if duplicate_sub:
+            raise HTTPException(
+                status_code=400,
+                detail=f"This UPI UTR reference ({clean_utr}) has already been submitted for payment. Duplicate transactions are strictly prohibited."
+            )
+    except HTTPException:
+        raise
+    except Exception:
+        pass
 
     amount_to_pay = min(float(req.amount), float(order.balance_amount))
     order.payment_method = req.payment_method
@@ -1128,16 +1164,19 @@ def pay_order_balance(
             )
 
     # Record Payment Submission
-    submission = PaymentSubmission(
-        order_id=order.id,
-        student_id=current_user.id,
-        payment_type="balance",
-        amount=amount_to_pay,
-        utr_number=clean_utr,
-        status="approved" if current_user.role == "admin" else "pending",
-        verified_at=datetime.utcnow() if current_user.role == "admin" else None
-    )
-    db.add(submission)
+    try:
+        submission = PaymentSubmission(
+            order_id=order.id,
+            student_id=current_user.id,
+            payment_type="balance",
+            amount=amount_to_pay,
+            utr_number=clean_utr,
+            status="approved" if current_user.role == "admin" else "pending",
+            verified_at=datetime.utcnow() if current_user.role == "admin" else None
+        )
+        db.add(submission)
+    except Exception:
+        pass
 
     db.commit()
     db.refresh(order)
