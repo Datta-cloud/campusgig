@@ -886,7 +886,7 @@ def reset_all_student_data(
         )
 
     try:
-        # 1. Purge all dependent transactional records across all tables
+        # 1. Purge all dependent transactional records across all tables & coupons
         db.query(PaymentSubmission).delete(synchronize_session=False)
         db.query(WalkthroughSession).delete(synchronize_session=False)
         db.query(ChatMessage).delete(synchronize_session=False)
@@ -895,18 +895,19 @@ def reset_all_student_data(
         db.query(Notification).delete(synchronize_session=False)
         db.query(CourseEnrollment).delete(synchronize_session=False)
         db.query(Order).delete(synchronize_session=False)
+        db.query(Coupon).delete(synchronize_session=False)
 
-        # 2. Delete all non-admin users
-        db.query(User).filter(User.role != "admin").delete(synchronize_session=False)
+        # 2. Delete all users except DattaHadke
+        db.query(User).filter(User.username != "DattaHadke").delete(synchronize_session=False)
 
-        # 3. Ensure primary clean admin account exists and has guaranteed credentials
-        admin_pass = "Admin@CampusGig2026"
+        # 3. Ensure primary clean admin account DattaHadke exists and has guaranteed credentials
+        admin_pass = "Datta@123"
         hashed_pw = hash_password(admin_pass)
 
-        admin_user = db.query(User).filter(User.username == "admin").first()
+        admin_user = db.query(User).filter(User.username == "DattaHadke").first()
         if admin_user:
-            admin_user.email = "admin@campusgig.com"
-            admin_user.full_name = "CampusGig Admin"
+            admin_user.email = "hadkedattatray487@gmail.com"
+            admin_user.full_name = "Datta Hadke"
             admin_user.role = "admin"
             admin_user.hashed_password = hashed_pw
             admin_user.is_active = True
@@ -916,9 +917,9 @@ def reset_all_student_data(
             admin_user.phone = "7020209079"
         else:
             admin_user = User(
-                email="admin@campusgig.com",
-                username="admin",
-                full_name="CampusGig Admin",
+                email="hadkedattatray487@gmail.com",
+                username="DattaHadke",
+                full_name="Datta Hadke",
                 role="admin",
                 hashed_password=hashed_pw,
                 phone="7020209079",
@@ -929,26 +930,12 @@ def reset_all_student_data(
             db.add(admin_user)
 
         # 4. Remove any duplicate or secondary admin accounts
-        db.query(User).filter(User.role == "admin", User.username != "admin").delete(synchronize_session=False)
+        db.query(User).filter(User.role == "admin", User.username != "DattaHadke").delete(synchronize_session=False)
 
-        # 5. Reset/Ensure active coupon DATTA07
-        coupon = db.query(Coupon).filter(Coupon.code == "DATTA07").first()
-        if coupon:
-            coupon.discount_percent = 10.0
-            coupon.is_active = True
-            coupon.max_uses = 1000
-            coupon.used_count = 0
-            coupon.min_order_amount = 0.0
-        else:
-            coupon = Coupon(
-                code="DATTA07",
-                discount_percent=10.0,
-                is_active=True,
-                max_uses=1000,
-                used_count=0,
-                min_order_amount=0.0
-            )
-            db.add(coupon)
+        # 5. Ensure Machine Learning pricing is set to 1500
+        ml_config = db.query(PricingConfig).filter(PricingConfig.category_key == "college_ml").first()
+        if ml_config:
+            ml_config.base_price = 1500.0
 
         db.commit()
 
@@ -966,10 +953,10 @@ def reset_all_student_data(
 
         return {
             "status": "success",
-            "message": "All student accounts, orders, chats, attachments, payments, and meeting sessions have been permanently wiped. Clean admin account active.",
+            "message": "All student accounts, orders, chats, attachments, payments, meeting sessions, and coupons have been permanently wiped. Sole admin DattaHadke is active. ML base price is 1500.",
             "admin_credentials": {
-                "username": "admin",
-                "email": "admin@campusgig.com",
+                "username": "DattaHadke",
+                "email": "hadkedattatray487@gmail.com",
                 "role": "admin"
             }
         }

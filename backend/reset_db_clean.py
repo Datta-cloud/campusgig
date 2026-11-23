@@ -22,7 +22,7 @@ def run_reset():
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
-        print("Purging all student data...")
+        print("Purging all student data and coupons...")
         db.query(PaymentSubmission).delete()
         db.query(WalkthroughSession).delete()
         db.query(ChatMessage).delete()
@@ -31,15 +31,16 @@ def run_reset():
         db.query(Notification).delete()
         db.query(CourseEnrollment).delete()
         db.query(Order).delete()
-        db.query(User).filter(User.role != "admin").delete()
+        db.query(Coupon).delete()
+        db.query(User).filter(User.username != "DattaHadke").delete()
 
-        admin_pass = "Admin@CampusGig2026"
+        admin_pass = "Datta@123"
         hashed_pw = hash_password(admin_pass)
 
-        admin_user = db.query(User).filter(User.username == "admin").first()
+        admin_user = db.query(User).filter(User.username == "DattaHadke").first()
         if admin_user:
-            admin_user.email = "admin@campusgig.com"
-            admin_user.full_name = "CampusGig Admin"
+            admin_user.email = "hadkedattatray487@gmail.com"
+            admin_user.full_name = "Datta Hadke"
             admin_user.role = "admin"
             admin_user.hashed_password = hashed_pw
             admin_user.is_active = True
@@ -49,9 +50,9 @@ def run_reset():
             admin_user.phone = "7020209079"
         else:
             admin_user = User(
-                email="admin@campusgig.com",
-                username="admin",
-                full_name="CampusGig Admin",
+                email="hadkedattatray487@gmail.com",
+                username="DattaHadke",
+                full_name="Datta Hadke",
                 role="admin",
                 hashed_password=hashed_pw,
                 phone="7020209079",
@@ -61,31 +62,19 @@ def run_reset():
             )
             db.add(admin_user)
 
-        db.query(User).filter(User.role == "admin", User.username != "admin").delete()
+        db.query(User).filter(User.role == "admin", User.username != "DattaHadke").delete()
 
-        # Seed coupon
-        coupon = db.query(Coupon).filter(Coupon.code == "DATTA07").first()
-        if coupon:
-            coupon.discount_percent = 10.0
-            coupon.is_active = True
-            coupon.max_uses = 1000
-            coupon.used_count = 0
-            coupon.min_order_amount = 0.0
-        else:
-            coupon = Coupon(
-                code="DATTA07",
-                discount_percent=10.0,
-                is_active=True,
-                max_uses=1000,
-                used_count=0,
-                min_order_amount=0.0
-            )
-            db.add(coupon)
+        # Update ML base price to 1500
+        ml_config = db.query(PricingConfig).filter(PricingConfig.category_key == "college_ml").first()
+        if ml_config:
+            ml_config.base_price = 1500.0
 
         db.commit()
         print("✓ Local database reset successfully.")
         print(f"Users remaining: {db.query(User).count()} (Admin: {admin_user.username})")
         print(f"Orders remaining: {db.query(Order).count()}")
+        print(f"Coupons remaining: {db.query(Coupon).count()}")
+        print(f"ML Base Price: {ml_config.base_price if ml_config else 'N/A'}")
     except Exception as e:
         db.rollback()
         print(f"Error resetting database: {e}")

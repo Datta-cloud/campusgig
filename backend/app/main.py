@@ -118,23 +118,33 @@ DEFAULT_PRICING = [
 def seed_database():
     db = SessionLocal()
     try:
-        # Seed admin user
-        admin_user = db.query(User).filter(User.username == "admin").first()
+        # Seed sole primary admin user: DattaHadke / Datta@123
+        admin_user = db.query(User).filter(User.username == "DattaHadke").first()
+        admin_initial_pw = os.getenv("ADMIN_PASSWORD", "Datta@123")
+        hashed_pw = hash_password(admin_initial_pw)
         if not admin_user:
-            admin_initial_pw = os.getenv("ADMIN_PASSWORD", "Admin@CampusGig2026")
             admin_user = User(
-                email="admin@campusgig.com",
-                username="admin",
-                full_name="CampusGig Admin",
+                email="hadkedattatray487@gmail.com",
+                username="DattaHadke",
+                full_name="Datta Hadke",
                 role="admin",
-                hashed_password=hash_password(admin_initial_pw),
+                hashed_password=hashed_pw,
+                phone="7020209079",
                 is_active=True,
                 is_online=False
             )
             db.add(admin_user)
-            print("✓ Admin user seeded")
+            print("✓ Admin user DattaHadke seeded")
+        else:
+            admin_user.hashed_password = hashed_pw
+            admin_user.role = "admin"
+            admin_user.full_name = "Datta Hadke"
+            admin_user.email = "hadkedattatray487@gmail.com"
 
-        # Seed pricing configs
+        # Remove any other admin accounts
+        db.query(User).filter(User.role == "admin", User.username != "DattaHadke").delete(synchronize_session=False)
+
+        # Seed pricing configs & ensure college_ml base price is 1500
         for item in DEFAULT_PRICING:
             existing = db.query(PricingConfig).filter(
                 PricingConfig.category_key == item["category_key"]
@@ -149,23 +159,12 @@ def seed_database():
                     add_ons_json=json.dumps(item["add_ons"])
                 )
                 db.add(config)
-
-        # Seed default coupon DATTA07
-        from app.models.coupon import Coupon
-        datta_coupon = db.query(Coupon).filter(Coupon.code == "DATTA07").first()
-        if not datta_coupon:
-            datta_coupon = Coupon(
-                code="DATTA07",
-                discount_percent=10.0,
-                max_uses=100,
-                used_count=0,
-                is_active=True,
-                description="Datta Official Student Promo"
-            )
-            db.add(datta_coupon)
+            else:
+                if item["category_key"] == "college_ml":
+                    existing.base_price = 1500.0
 
         db.commit()
-        print("✓ Pricing configs and default coupons seeded")
+        print("✓ Pricing configs and admin verified")
     except Exception as e:
         db.rollback()
         print(f"Seed error: {e}")
@@ -301,7 +300,7 @@ async def lifespan(app: FastAPI):
         except Exception as mig_err:
             print(f"⚠️ Wallet reset note: {mig_err}")
 
-        # Ensure coupons table exists and seed default DATTA07
+        # Ensure coupons table exists
         try:
             with engine.begin() as conn:
                 conn.execute(text("""
@@ -317,9 +316,6 @@ async def lifespan(app: FastAPI):
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 """))
-                row = conn.execute(text("SELECT id FROM coupons WHERE code = 'DATTA07'")).first()
-                if not row:
-                    conn.execute(text("INSERT INTO coupons (code, discount_percent, max_uses, used_count, is_active, description) VALUES ('DATTA07', 10.0, 100, 0, true, 'Datta Official Student Promo')"))
         except Exception:
             try:
                 with engine.begin() as conn:
@@ -336,9 +332,6 @@ async def lifespan(app: FastAPI):
                             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
                         )
                     """))
-                    row = conn.execute(text("SELECT id FROM coupons WHERE code = 'DATTA07'")).first()
-                    if not row:
-                        conn.execute(text("INSERT INTO coupons (code, discount_percent, max_uses, used_count, is_active, description) VALUES ('DATTA07', 10.0, 100, 0, 1, 'Datta Official Student Promo')"))
             except Exception as inner_e:
                 print(f"⚠️ Coupon table setup note: {inner_e}")
 

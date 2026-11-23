@@ -17,7 +17,7 @@ from app.models.order import Order, OrderGroupMember
 from app.models.user import User
 from app.models.attachment import OrderAttachment
 from app.models.payment_submission import PaymentSubmission
-from app.services.auth_service import get_current_user, require_admin, require_student
+from app.services.auth_service import get_current_user, require_admin, require_student, get_current_user_optional
 from app.services.pricing_service import calculate_order_price
 from app.services.ai_service import (
     refine_project_scope,
@@ -314,7 +314,11 @@ def calculate_price(req: PriceCalcRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/validate-coupon")
-def validate_coupon_endpoint(req: ValidateCouponRequest, db: Session = Depends(get_db)):
+def validate_coupon_endpoint(
+    req: ValidateCouponRequest,
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
     clean_code = req.code.strip().upper()
     if not clean_code:
         raise HTTPException(status_code=400, detail="Please enter a coupon code.")
@@ -332,6 +336,19 @@ def validate_coupon_endpoint(req: ValidateCouponRequest, db: Session = Depends(g
             status_code=400,
             detail=f"Coupon '{coupon.code}' has reached its maximum redemption limit ({coupon.max_uses} uses)."
         )
+
+    # 1 promo per student check
+    if current_user and current_user.role == "student":
+        already_used = db.query(Order).filter(
+            Order.student_id == current_user.id,
+            Order.coupon_code == clean_code,
+            Order.status != "cancelled"
+        ).first()
+        if already_used:
+            raise HTTPException(
+                status_code=400,
+                detail=f"You have already redeemed promo code '{clean_code}'. Each student can only use a promo code once."
+            )
 
     return {
         "valid": True,
@@ -617,6 +634,20 @@ def confirm_payment(
             raise HTTPException(status_code=400, detail="Invalid or inactive coupon code")
         if cpn.max_uses and (cpn.used_count or 0) >= cpn.max_uses:
             raise HTTPException(status_code=400, detail="Coupon usage limit reached")
+
+        # 1 promo per student check
+        if current_user.role == "student":
+            already_used = db.query(Order).filter(
+                Order.student_id == current_user.id,
+                Order.coupon_code == clean_coupon,
+                Order.id != order.id,
+                Order.status != "cancelled"
+            ).first()
+            if already_used:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"You have already redeemed promo code '{clean_coupon}'. Each student can only use a promo code once."
+                )
 
         # Backend-enforced discount calculation
         discount_percent = float(cpn.discount_percent)
