@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Code2, Brain, Sparkles, Layout, Server, Layers, Smartphone, BarChart3,
   BookOpen, Clock, CheckCircle2, ChevronRight, ChevronLeft, ArrowRight,
-  ShieldCheck, AlertCircle, RefreshCw, QrCode, CreditCard, Send, Check
+  ShieldCheck, AlertCircle, RefreshCw, QrCode, CreditCard, Send, Check, Tag, Zap, Copy
 } from 'lucide-react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -94,6 +94,34 @@ export const OrderWizard: React.FC = () => {
   const [orderCreatedId, setOrderCreatedId] = useState<number | null>(null);
   const [createdOrderNumber, setCreatedOrderNumber] = useState('');
 
+  // Coupon state
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
+  const [couponMsg, setCouponMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  const effectiveTotal = appliedCoupon ? Math.round(pricing.total * 0.90) : pricing.total;
+  const effectiveAdvance = appliedCoupon ? Math.round(pricing.advance * 0.90) : pricing.advance;
+  const effectiveBalance = Math.max(0, effectiveTotal - effectiveAdvance);
+  const totalDiscount = pricing.total - effectiveTotal;
+
+  const handleApplyCoupon = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const code = couponCode.trim().toUpperCase();
+    if (!code) return;
+    if (code === 'DATTA07') {
+      setAppliedCoupon('DATTA07');
+      setCouponMsg({ text: '🎉 Coupon DATTA07 applied! 10% discount on total & advance.', type: 'success' });
+    } else {
+      setCouponMsg({ text: "❌ Invalid coupon. Use 'DATTA07' for 10% discount!", type: 'error' });
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCode('');
+    setCouponMsg(null);
+  };
+
   // Fetch dynamic price whenever inputs change
   useEffect(() => {
     const fetchPricing = async () => {
@@ -177,8 +205,9 @@ export const OrderWizard: React.FC = () => {
 
   // Step 4: Submit Order and Pay 30% Advance
   const handleConfirmOrder = async () => {
-    if (!utrNumber.trim()) {
-      alert('Please enter your 12-digit UPI UTR or Transaction Reference number.');
+    const cleanUtr = utrNumber.trim();
+    if (cleanUtr.length !== 12) {
+      alert('Please enter a valid 12-digit UPI UTR / Transaction Reference number from your payment receipt.');
       return;
     }
     setLoading(true);
@@ -193,7 +222,7 @@ export const OrderWizard: React.FC = () => {
         deadline: new Date(deadline).toISOString(),
         urgency: urgency,
         payment_method: paymentMethod,
-        student_notes: `UTR: ${utrNumber}. Scope summary: ${aiScope?.methodology || ''}`,
+        student_notes: `UTR: ${cleanUtr}. Coupon: ${appliedCoupon || 'None'}. Scope summary: ${aiScope?.methodology || ''}`,
         ai_refined_scope: JSON.stringify(aiScope),
       });
 
@@ -201,10 +230,12 @@ export const OrderWizard: React.FC = () => {
       setOrderCreatedId(orderData.id);
       setCreatedOrderNumber(orderData.order_number);
 
-      // Confirm payment with UTR
+      // Confirm payment with UTR and Coupon
       await api.put(`/orders/${orderData.id}/confirm-payment`, {
         payment_method: paymentMethod,
-        utr_number: utrNumber,
+        utr_number: cleanUtr,
+        coupon_code: appliedCoupon,
+        discount_amount: totalDiscount,
       });
 
       setStep(5); // Success step
@@ -850,21 +881,89 @@ export const OrderWizard: React.FC = () => {
 
             {/* Amount Callout */}
             <div className="bg-gradient-to-br from-brand-600 to-indigo-700 p-6 rounded-2xl text-white text-center shadow-lg shadow-brand-500/25">
-              <span className="text-xs text-brand-200 uppercase tracking-widest font-bold">Advance Amount Due</span>
-              <div className="text-4xl font-black mt-1">₹{pricing.advance}</div>
+              <span className="text-xs text-brand-200 uppercase tracking-widest font-bold">Advance Amount Due (30%)</span>
+              <div className="flex items-center justify-center gap-2 mt-1">
+                {appliedCoupon && (
+                  <span className="text-xl line-through text-brand-300 font-bold">₹{pricing.advance}</span>
+                )}
+                <div className="text-4xl font-black">₹{effectiveAdvance}</div>
+              </div>
               <span className="text-xs text-brand-200 mt-1 block">
-                Total Project: ₹{pricing.total} • Balance ₹{pricing.balance} on delivery
+                Total Project: {appliedCoupon ? <><span className="line-through">₹{pricing.total}</span> <strong className="text-white">₹{effectiveTotal}</strong></> : `₹${pricing.total}`} • Balance ₹{effectiveBalance} on delivery
               </span>
+              {appliedCoupon && (
+                <span className="inline-block mt-2 bg-emerald-500/30 border border-emerald-300/40 text-emerald-100 text-[11px] font-bold px-3 py-1 rounded-full">
+                  🎉 Coupon DATTA07 Active: 10% Off (-₹{totalDiscount})
+                </span>
+              )}
+            </div>
+
+            {/* Coupon Code Section */}
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                  <Tag className="w-4 h-4 text-amber-600" /> Have a Coupon Code?
+                </span>
+                {appliedCoupon && (
+                  <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-600" /> 10% OFF APPLIED
+                  </span>
+                )}
+              </div>
+
+              {!appliedCoupon ? (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={couponCode}
+                    onChange={e => setCouponCode(e.target.value.toUpperCase())}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleApplyCoupon(); } }}
+                    placeholder="Enter Coupon (e.g. DATTA07)"
+                    className="flex-1 input-field text-xs font-mono uppercase bg-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleApplyCoupon()}
+                    className="btn-primary text-xs px-4 py-2 font-bold shrink-0 bg-amber-600 hover:bg-amber-700 text-white shadow-sm"
+                  >
+                    Apply
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between bg-white p-2.5 rounded-xl border border-emerald-200">
+                  <div className="text-xs">
+                    <span className="font-mono font-black text-emerald-700">{appliedCoupon}</span>
+                    <span className="text-slate-600 ml-2 font-medium">(-₹{totalDiscount} / 10% discount on total fee)</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRemoveCoupon}
+                    className="text-[11px] font-bold text-red-600 hover:text-red-700 hover:underline"
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
+
+              {couponMsg ? (
+                <p className={`text-[11px] font-semibold ${couponMsg.type === 'success' ? 'text-emerald-700' : 'text-red-600'}`}>
+                  {couponMsg.text}
+                </p>
+              ) : (
+                <p className="text-[10px] text-amber-700">
+                  Apply coupon <strong>DATTA07</strong> to get an instant 10% discount on this booking!
+                </p>
+              )}
             </div>
 
             {/* UPI Payment Instructions */}
             <div className="border border-slate-200 rounded-2xl p-5 space-y-4 bg-slate-50/50">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                  <QrCode className="w-4 h-4 text-brand-600" /> Instant UPI QR / ID Payment
+                  <QrCode className="w-4 h-4 text-brand-600" /> Instant Direct UPI QR Payment
                 </span>
                 <span className="text-[11px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded">
-                  GPay / PhonePe / Paytm
+                  GPay / PhonePe / Paytm / BHIM
                 </span>
               </div>
 
@@ -872,44 +971,68 @@ export const OrderWizard: React.FC = () => {
               <div className="flex flex-col items-center justify-center p-5 bg-white rounded-2xl border border-dashed border-slate-300">
                 <div className="p-2 bg-white rounded-xl border border-slate-200 shadow-sm">
                   <img
-                    src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https%3A%2F%2Frazorpay.me%2F%40dattatraygorakshhadke"
-                    alt="Razorpay QR"
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(`upi://pay?pa=razorpay.me/@dattatraygorakshhadke&pn=Dattatray%20Goraksh%20Hadke&am=${effectiveAdvance}&cu=INR&tn=${encodeURIComponent('CampusGig Advance ' + projectTitle.slice(0, 20))}`)}`}
+                    alt="Direct UPI QR"
                     className="w-36 h-36 object-contain rounded-lg"
                   />
                 </div>
                 <div className="mt-3 text-center space-y-1">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                    Verified Payee (Powered by Razorpay)
+                    Verified Merchant Payee
                   </span>
                   <span className="text-xs font-black text-slate-900 block">
                     DATTATRAY GORAKSH HADKE
                   </span>
-                  <a
-                    href="https://razorpay.me/@dattatraygorakshhadke"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs font-bold text-brand-600 hover:text-brand-700 underline mt-1"
-                  >
-                    Open razorpay.me/@dattatraygorakshhadke ↗
-                  </a>
+                  <span className="text-[11px] font-mono text-slate-500 block">
+                    razorpay.me/@dattatraygorakshhadke
+                  </span>
+                  <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                    <a
+                      href={`upi://pay?pa=razorpay.me/@dattatraygorakshhadke&pn=Dattatray%20Goraksh%20Hadke&am=${effectiveAdvance}&cu=INR&tn=${encodeURIComponent('CampusGig Advance Payment')}`}
+                      className="btn-primary text-xs px-3.5 py-1.5 flex items-center gap-1.5 font-bold shadow-sm bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl"
+                    >
+                      <Zap className="w-3.5 h-3.5" />
+                      Pay via UPI App
+                    </a>
+                    <a
+                      href="https://razorpay.me/@dattatraygorakshhadke"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-secondary text-xs px-3 py-1.5 font-bold rounded-xl"
+                    >
+                      Razorpay Link ↗
+                    </a>
+                  </div>
                 </div>
               </div>
 
               {/* UTR Input */}
               <div>
-                <label className="block text-xs font-bold text-slate-900 mb-1">
-                  Enter 12-Digit UPI UTR / Transaction Reference Number *
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-900">
+                    Enter 12-Digit UPI UTR / Bank Reference Number *
+                  </label>
+                  <span className={`text-[10px] font-mono font-bold ${utrNumber.length === 12 ? 'text-emerald-600' : 'text-slate-400'}`}>
+                    {utrNumber.length}/12 Digits
+                  </span>
+                </div>
                 <input
                   type="text"
                   value={utrNumber}
-                  onChange={e => setUtrNumber(e.target.value)}
+                  onChange={e => setUtrNumber(e.target.value.replace(/\D/g, '').slice(0, 12))}
                   placeholder="e.g., 412356789012"
-                  className="input-field font-mono text-sm"
+                  maxLength={12}
+                  className="input-field font-mono text-sm tracking-wider"
                 />
                 <p className="text-[11px] text-slate-500 mt-1">
-                  Copy from your UPI app's transaction successful screen.
+                  Copy 12-digit UTR from your UPI payment success screen (GPay, PhonePe, Paytm).
                 </p>
+                <div className="mt-2 p-2 rounded-xl bg-slate-50 border border-slate-200 flex items-start gap-1.5 text-[10px] text-slate-600">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Anti-Cheat Security:</strong> Every submitted UTR is matched against bank statements. Fake or duplicate UTR submissions are rejected and access is blocked.
+                  </span>
+                </div>
               </div>
             </div>
 

@@ -48,11 +48,14 @@ export interface Order {
   total_price: number;
   advance_amount: number;
   balance_amount: number;
-  status: 'pending_payment' | 'advance_paid' | 'in_progress' | 'ready_for_review' | 'completed' | 'cancelled' | 'revision_requested';
+  status: 'pending_payment' | 'payment_submitted' | 'advance_paid' | 'in_progress' | 'ready_for_review' | 'completed' | 'cancelled' | 'revision_requested';
   advance_paid_at?: string;
   completed_at?: string;
   payment_method?: string;
   utr_number?: string;
+  payment_verified?: boolean;
+  coupon_code?: string;
+  discount_amount?: number;
   admin_notes?: string;
   student_notes?: string;
   revision_count?: number;
@@ -62,6 +65,7 @@ export interface Order {
   plagiarism_score?: number;
   ai_detection_score?: number;
   plagiarism_report_url?: string;
+  walkthrough_count?: number;
   walkthrough_scheduled_at?: string;
   walkthrough_meeting_url?: string;
   certificate_id?: string;

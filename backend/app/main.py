@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from sqlalchemy import text
 from app.database import engine, SessionLocal
 from app.models import User, PricingConfig, Order, ChatMessage, OrderAttachment, Course, CourseEnrollment
 from app.database import Base
@@ -163,6 +164,22 @@ async def lifespan(app: FastAPI):
     try:
         Base.metadata.create_all(bind=engine)
         print("✓ Database tables created")
+
+        # Safe automatic schema migrations for newly added columns
+        with engine.connect() as conn:
+            migration_sqls = [
+                "ALTER TABLE orders ADD COLUMN walkthrough_count INTEGER DEFAULT 0",
+                "ALTER TABLE orders ADD COLUMN coupon_code VARCHAR",
+                "ALTER TABLE orders ADD COLUMN discount_amount FLOAT DEFAULT 0.0",
+                "ALTER TABLE orders ADD COLUMN payment_verified BOOLEAN DEFAULT 0",
+            ]
+            for sql_stmt in migration_sqls:
+                try:
+                    conn.execute(text(sql_stmt))
+                    conn.commit()
+                except Exception:
+                    pass
+
         seed_database()
     except Exception as e:
         print(f"⚠️ Database startup check: {e}")

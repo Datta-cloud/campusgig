@@ -140,6 +140,22 @@ export const AdminOrders: React.FC = () => {
     }
   };
 
+  const handleVerifyPayment = async (orderId: number, action: 'approve' | 'reject') => {
+    let reason: string | undefined = undefined;
+    if (action === 'reject') {
+      const promptRes = prompt('Reason for rejection (e.g. UTR not found in bank statement):');
+      if (promptRes === null) return;
+      reason = promptRes;
+    }
+    try {
+      await api.post(`/admin/orders/${orderId}/verify-payment`, { action, notes: reason });
+      alert(action === 'approve' ? '✅ Payment verified! Order status updated to Advance Paid.' : '❌ Payment rejected. Order reset to Pending Payment.');
+      fetchOrders();
+    } catch (err: any) {
+      alert(getErrorMessage(err, 'Failed to update payment status'));
+    }
+  };
+
   const filteredOrders = orders.filter(o => {
     const matchesStatus = statusFilter === 'all' || o.status === statusFilter;
     const matchesSearch =
@@ -250,11 +266,42 @@ export const AdminOrders: React.FC = () => {
                       <span className="font-bold text-slate-900 block">Total: ₹{o.total_price}</span>
                       <span className="text-[10px] text-emerald-600">Adv: ₹{o.advance_amount}</span>
                       <span className="text-[10px] text-slate-400 block">Bal: ₹{o.balance_amount}</span>
+                      {o.coupon_code && (
+                        <span className="text-[9px] bg-amber-50 text-amber-700 font-bold px-1.5 py-0.5 rounded border border-amber-200 block mt-0.5 w-fit">
+                          🎟️ {o.coupon_code} (-₹{o.discount_amount || 0})
+                        </span>
+                      )}
                     </td>
                     <td className="py-3.5 px-4">
                       <StatusBadge status={o.status} />
+                      {o.utr_number && (
+                        <span className="text-[10px] font-mono text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200 block mt-1 w-fit">
+                          UTR: {o.utr_number}
+                        </span>
+                      )}
                     </td>
                     <td className="py-3.5 px-4 text-right space-x-1.5">
+                      {o.status === 'payment_submitted' && (
+                        <span className="inline-flex items-center gap-1 mr-1">
+                          <button
+                            type="button"
+                            onClick={() => handleVerifyPayment(o.id, 'approve')}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] px-2.5 py-1 rounded-xl font-bold inline-flex items-center gap-1 shadow-sm"
+                            title="Verify Bank Statement & Approve"
+                          >
+                            <CheckCircle2 className="w-3 h-3" /> Approve UTR
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleVerifyPayment(o.id, 'reject')}
+                            className="bg-red-100 hover:bg-red-200 text-red-700 text-[11px] px-2 py-1 rounded-xl font-bold inline-flex items-center gap-1"
+                            title="Reject Invalid UTR"
+                          >
+                            <X className="w-3 h-3" /> Reject
+                          </button>
+                        </span>
+                      )}
+
                       {o.status === 'revision_requested' && (
                         <button
                           type="button"

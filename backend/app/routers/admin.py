@@ -385,3 +385,75 @@ def update_plagiarism_scores(
     }
 
 
+class VerifyPaymentRequest(BaseModel):
+    action: str  # "approve" or "reject"
+    notes: Optional[str] = None
+
+
+@router.post("/orders/{order_id}/verify-payment")
+def verify_order_payment(
+    order_id: int,
+    req: VerifyPaymentRequest,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    from app.services.notification_service import create_notification
+
+    if req.action == "approve":
+        order.status = "advance_paid"
+        order.payment_verified = True
+        order.advance_paid_at = datetime.utcnow()
+        if req.notes:
+            order.admin_notes = req.notes
+        db.commit()
+        db.refresh(order)
+
+        create_notification(
+            db=db,
+            user_id=order.student_id,
+            title="Payment Verified & Development Started! 🚀",
+            message=f"Your advance payment (UTR: {order.utr_number}) for {order.order_number} has been verified in our bank account. Development is in progress!",
+            order_id=order.id,
+            channel="whatsapp",
+            action_url=f"/order/{order.id}"
+        )
+        return {
+            "success": True,
+            "message": f"Payment for order {order.order_number} verified and approved.",
+            "status": order.status,
+            "payment_verified": True
+        }
+    elif req.action == "reject":
+        bad_utr = order.utr_number
+        order.status = "pending_payment"
+        order.payment_verified = False
+        order.utr_number = None
+        if req.notes:
+            order.admin_notes = req.notes
+        db.commit()
+        db.refresh(order)
+
+        create_notification(
+            db=db,
+            user_id=order.student_id,
+            title="⚠️ Payment Verification Rejected",
+            message=f"Transaction UTR {bad_utr} could not be matched with our bank statement. Reason: {req.notes or 'Payment not received in bank account'}. Please re-submit a valid 12-digit UPI reference.",
+            order_id=order.id,
+            channel="whatsapp",
+            action_url=f"/order/{order.id}"
+        )
+        return {
+            "success": True,
+            "message": f"Payment for order {order.order_number} rejected. Order returned to pending payment.",
+            "status": order.status,
+            "payment_verified": False
+        }
+    else:
+        raise HTTPException(status_code=400, detail="Invalid action. Must be 'approve' or 'reject'.")
+
+
+

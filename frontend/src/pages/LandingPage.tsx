@@ -40,6 +40,14 @@ const LandingPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (mode === 'register') {
+      // Clear all fields for new registration so no demo credentials appear
+      setForm({
+        email: '', password: '', full_name: '', username: '',
+        student_type: 'college', college_name: '', college_branch: '', school_class: '', phone: '',
+      });
+      return;
+    }
     if (tab === 'admin') {
       const savedAdminUser = localStorage.getItem('cg_saved_admin_user') || 'admin';
       const savedAdminPass = localStorage.getItem('cg_saved_admin_pass') || 'Admin@CampusGig2026';
@@ -49,7 +57,7 @@ const LandingPage: React.FC = () => {
       const savedStudentPass = localStorage.getItem('cg_saved_student_pass') || 'Student@2026';
       setForm(f => ({ ...f, email: savedStudentUser, password: savedStudentPass }));
     }
-  }, [tab, showModal]);
+  }, [tab, showModal, mode]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setForm(f => ({ ...f, [e.target.name]: e.target.value }));
@@ -111,6 +119,23 @@ const LandingPage: React.FC = () => {
           school_class: form.school_class || undefined,
           phone: form.phone || undefined,
         });
+
+        // Save newly registered user to localStorage so their OWN credentials are remembered next time
+        localStorage.setItem('cg_saved_student_user', form.username || form.email);
+        localStorage.setItem('cg_saved_student_pass', form.password);
+
+        // Prompt Google Password Manager via Credential Management API if supported
+        if (typeof window !== 'undefined' && (window as any).PasswordCredential && navigator.credentials) {
+          try {
+            const cred = new (window as any).PasswordCredential({
+              id: form.username || form.email,
+              password: form.password,
+              name: form.full_name || form.username,
+            });
+            navigator.credentials.store(cred).catch(() => {});
+          } catch (_) {}
+        }
+
         setShowModal(false);
         navigate('/dashboard');
       }
@@ -243,108 +268,190 @@ const LandingPage: React.FC = () => {
 
               {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">{error}</div>}
 
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {tab === 'student' && mode === 'register' && (
+              <form onSubmit={handleSubmit} method="POST" action="#" className="space-y-4">
+                {tab === 'student' && mode === 'register' ? (
                   <>
-                    <input name="full_name" placeholder="Full Name" value={form.full_name} onChange={handleChange} className="input-field" required />
-                    <input name="username" placeholder="Username" value={form.username} onChange={handleChange} className="input-field" required />
-                    <input name="phone" placeholder="Phone (optional)" value={form.phone} onChange={handleChange} className="input-field" />
-                    <select name="student_type" value={form.student_type} onChange={handleChange} className="input-field">
-                      <option value="college">🎓 College Student</option>
-                      <option value="school">🎒 School Student</option>
-                    </select>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Full Name *</label>
+                      <input
+                        name="full_name"
+                        type="text"
+                        placeholder="Full Name (e.g. Rahul Sharma)"
+                        value={form.full_name}
+                        onChange={handleChange}
+                        autoComplete="name"
+                        className="input-field"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Username *</label>
+                      <input
+                        name="username"
+                        type="text"
+                        placeholder="Username (e.g. rahul_dev)"
+                        value={form.username}
+                        onChange={handleChange}
+                        autoComplete="username"
+                        className="input-field"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Email Address *</label>
+                      <input
+                        name="email"
+                        type="email"
+                        placeholder="Email Address (e.g. rahul@example.com)"
+                        value={form.email}
+                        onChange={handleChange}
+                        autoComplete="email"
+                        className="input-field"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Phone Number (Optional)</label>
+                      <input
+                        name="phone"
+                        type="tel"
+                        placeholder="Phone (e.g. 9876543210)"
+                        value={form.phone}
+                        onChange={handleChange}
+                        autoComplete="tel"
+                        className="input-field"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Student Category</label>
+                      <select name="student_type" value={form.student_type} onChange={handleChange} className="input-field">
+                        <option value="college">🎓 College Student (B.Tech, BCA, MCA, M.Tech)</option>
+                        <option value="school">🎒 School Student (Class 6 - 12)</option>
+                      </select>
+                    </div>
                     {form.student_type === 'college' ? (
-                      <>
+                      <div className="grid grid-cols-2 gap-2">
                         <input name="college_name" placeholder="College Name" value={form.college_name} onChange={handleChange} className="input-field" />
                         <input name="college_branch" placeholder="Branch (e.g. CSE, IT)" value={form.college_branch} onChange={handleChange} className="input-field" />
-                      </>
+                      </div>
                     ) : (
-                      <input name="school_class" placeholder="Class (e.g. Class 8)" value={form.school_class} onChange={handleChange} className="input-field" />
+                      <input name="school_class" placeholder="Class (e.g. Class 10)" value={form.school_class} onChange={handleChange} className="input-field" />
                     )}
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Create Password *</label>
+                      <div className="relative">
+                        <input
+                          name="password"
+                          type={showPass ? 'text' : 'password'}
+                          autoComplete="new-password"
+                          placeholder="Create Secure Password"
+                          value={form.password}
+                          onChange={handleChange}
+                          className="input-field pr-10"
+                          required
+                        />
+                        <button type="button" onClick={() => setShowPass(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                          {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-emerald-600 mt-1 flex items-center gap-1 font-medium">
+                        🔒 After registering, Google Password Manager will offer to save your credentials for automatic 1-click login!
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* 1-Click Quick Fill & Direct Login Helper - STUDENT */}
+                    {tab === 'student' && mode === 'login' && (
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          disabled={loading}
+                          onClick={() => handleQuickFill('ananya_cse', 'Student@2026')}
+                          className="flex-1 text-xs py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl font-bold border border-blue-200 flex items-center justify-center gap-1.5 transition-all disabled:opacity-50"
+                        >
+                          ⚡ Auto-Fill Ananya
+                        </button>
+                        <button
+                          type="button"
+                          disabled={loading}
+                          onClick={() => handleDirectLogin('ananya_cse', 'Student@2026')}
+                          className="flex-1 text-xs py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm disabled:opacity-50"
+                        >
+                          {loading ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Logging in...
+                            </>
+                          ) : (
+                            '🚀 1-Click Direct Login'
+                          )}
+                        </button>
+                      </div>
+                    )}
+
+                    {/* 1-Click Quick Fill & Direct Login Helper - ADMIN */}
+                    {tab === 'admin' && (
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          disabled={loading}
+                          onClick={() => handleQuickFill('admin', 'Admin@CampusGig2026')}
+                          className="flex-1 text-xs py-2 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-xl font-bold border border-purple-200 flex items-center justify-center gap-1.5 transition-all disabled:opacity-50"
+                        >
+                          ⚡ Auto-Fill Admin
+                        </button>
+                        <button
+                          type="button"
+                          disabled={loading}
+                          onClick={() => handleDirectLogin('admin', 'Admin@CampusGig2026')}
+                          className="flex-1 text-xs py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm disabled:opacity-50"
+                        >
+                          {loading ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Logging in...
+                            </>
+                          ) : (
+                            '🚀 1-Click Direct Login'
+                          )}
+                        </button>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">
+                        {tab === 'admin' ? 'Admin Username' : 'Username or Email'}
+                      </label>
+                      <input
+                        name="email"
+                        type="text"
+                        autoComplete="username"
+                        placeholder={tab === 'admin' ? "Username (e.g. admin)" : "Username or Email"}
+                        value={form.email}
+                        onChange={handleChange}
+                        className="input-field"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Password</label>
+                      <div className="relative">
+                        <input
+                          name="password"
+                          type={showPass ? 'text' : 'password'}
+                          autoComplete="current-password"
+                          placeholder="Password"
+                          value={form.password}
+                          onChange={handleChange}
+                          className="input-field pr-10"
+                          required
+                        />
+                        <button type="button" onClick={() => setShowPass(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                          {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
                   </>
                 )}
-
-                {/* 1-Click Quick Fill & Direct Login Helper - STUDENT */}
-                {tab === 'student' && mode === 'login' && (
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      disabled={loading}
-                      onClick={() => handleQuickFill('ananya_cse', 'Student@2026')}
-                      className="flex-1 text-xs py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl font-bold border border-blue-200 flex items-center justify-center gap-1.5 transition-all disabled:opacity-50"
-                    >
-                      ⚡ Auto-Fill Ananya
-                    </button>
-                    <button
-                      type="button"
-                      disabled={loading}
-                      onClick={() => handleDirectLogin('ananya_cse', 'Student@2026')}
-                      className="flex-1 text-xs py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm disabled:opacity-50"
-                    >
-                      {loading ? (
-                        <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Logging in...
-                        </>
-                      ) : (
-                        '🚀 1-Click Direct Login'
-                      )}
-                    </button>
-                  </div>
-                )}
-
-                {/* 1-Click Quick Fill & Direct Login Helper - ADMIN */}
-                {tab === 'admin' && (
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      disabled={loading}
-                      onClick={() => handleQuickFill('admin', 'Admin@CampusGig2026')}
-                      className="flex-1 text-xs py-2 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-xl font-bold border border-purple-200 flex items-center justify-center gap-1.5 transition-all disabled:opacity-50"
-                    >
-                      ⚡ Auto-Fill Admin
-                    </button>
-                    <button
-                      type="button"
-                      disabled={loading}
-                      onClick={() => handleDirectLogin('admin', 'Admin@CampusGig2026')}
-                      className="flex-1 text-xs py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm disabled:opacity-50"
-                    >
-                      {loading ? (
-                        <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Logging in...
-                        </>
-                      ) : (
-                        '🚀 1-Click Direct Login'
-                      )}
-                    </button>
-                  </div>
-                )}
-
-                <input
-                  name="email"
-                  type="text"
-                  autoComplete="username"
-                  placeholder={tab === 'admin' ? "Username (e.g. admin)" : "Username or Email"}
-                  value={form.email}
-                  onChange={handleChange}
-                  className="input-field"
-                  required
-                />
-                <div className="relative">
-                  <input
-                    name="password"
-                    type={showPass ? 'text' : 'password'}
-                    autoComplete="current-password"
-                    placeholder="Password"
-                    value={form.password}
-                    onChange={handleChange}
-                    className="input-field pr-10"
-                    required
-                  />
-                  <button type="button" onClick={() => setShowPass(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
-                    {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
 
                 {/* Remember Me Checkbox */}
                 <div className="flex items-center justify-between text-xs text-gray-500 pt-1">

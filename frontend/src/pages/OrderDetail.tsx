@@ -284,6 +284,21 @@ export const OrderDetail: React.FC = () => {
           </div>
         </div>
 
+        {/* Payment Verification Pending Banner */}
+        {order.status === 'payment_submitted' && (
+          <div className="bg-amber-50 border border-amber-200 p-5 rounded-2xl flex items-center gap-4 text-amber-900 animate-slide-up">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-amber-500/20">
+              <Clock className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-bold text-sm">Payment Under Bank Verification ⏳</h4>
+              <p className="text-xs text-amber-800 mt-0.5">
+                Transaction reference <strong>UTR: {order.utr_number}</strong> was received. Mentor is verifying transaction receipt in the bank statement. Project milestones will unlock immediately upon approval.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* 1. Walkthrough Meeting Live Banner if Scheduled */}
         {(order as any).walkthrough_meeting_url && (
           <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-5 rounded-2xl shadow-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 animate-slide-up">
@@ -916,6 +931,7 @@ export const OrderDetail: React.FC = () => {
           onClose={() => setWalkthroughModalOpen(false)}
           orderId={order.id}
           orderNumber={order.order_number}
+          walkthroughCount={(order as any).walkthrough_count || 0}
           onSuccess={fetchOrder}
         />
 

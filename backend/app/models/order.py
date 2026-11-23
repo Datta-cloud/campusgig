@@ -46,9 +46,15 @@ class Order(Base):
     ai_detection_score = Column(Float, nullable=True)    # e.g., 0.0%
     plagiarism_report_url = Column(String, nullable=True)
 
-    # 1-on-1 Walkthrough Scheduler
+    # 1-on-1 Walkthrough Scheduler (Max 3 sessions)
+    walkthrough_count = Column(Integer, default=0)
     walkthrough_scheduled_at = Column(DateTime, nullable=True)
     walkthrough_meeting_url = Column(String, nullable=True)
+
+    # Coupon & Fraud Prevention
+    coupon_code = Column(String, nullable=True)
+    discount_amount = Column(Float, default=0.0)
+    payment_verified = Column(Boolean, default=False)
 
     # Verifiable Certificate of Implementation
     certificate_id = Column(String, unique=True, nullable=True, index=True)

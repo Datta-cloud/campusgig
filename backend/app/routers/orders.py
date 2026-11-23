@@ -75,8 +75,10 @@ class StatusUpdateRequest(BaseModel):
 
 
 class PaymentConfirmRequest(BaseModel):
-    payment_method: str
+    payment_method: str = "upi"
     utr_number: Optional[str] = None
+    coupon_code: Optional[str] = None
+    discount_amount: Optional[float] = 0.0
 
 
 class RevisionRequest(BaseModel):
@@ -136,8 +138,12 @@ def order_to_dict(order: Order) -> dict:
         "plagiarism_score": order.plagiarism_score,
         "ai_detection_score": order.ai_detection_score,
         "plagiarism_report_url": order.plagiarism_report_url,
+        "walkthrough_count": order.walkthrough_count or 0,
         "walkthrough_scheduled_at": order.walkthrough_scheduled_at.isoformat() if order.walkthrough_scheduled_at else None,
         "walkthrough_meeting_url": order.walkthrough_meeting_url,
+        "coupon_code": order.coupon_code,
+        "discount_amount": order.discount_amount or 0.0,
+        "payment_verified": bool(order.payment_verified),
         "certificate_id": order.certificate_id,
         "certificate_issued_at": order.certificate_issued_at.isoformat() if order.certificate_issued_at else None,
         "github_repo_url": order.github_repo_url,
@@ -312,7 +318,11 @@ def update_order_status(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    valid_statuses = ["pending_payment", "advance_paid", "in_progress", "ready_for_review", "completed", "cancelled", "revision_requested"]
+    valid_statuses = [
+        "pending_payment", "payment_submitted", "advance_paid",
+        "in_progress", "ready_for_review", "completed",
+        "cancelled", "revision_requested"
+    ]
     if req.status not in valid_statuses:
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
 
@@ -363,24 +373,84 @@ def confirm_payment(
     if current_user.role == "student" and order.student_id != current_user.id:
         raise HTTPException(status_code=403, detail="Access denied")
 
+    # 1. Validate UTR is present
+    if not req.utr_number or not req.utr_number.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="12-digit UPI transaction reference (UTR) is required to verify payment."
+        )
+
+    clean_utr = req.utr_number.strip()
+
+    # 2. Strict 12-digit numeric regex check (Indian banking UPI standard)
+    if not re.match(r"^\d{12}$", clean_utr):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid UPI Transaction Reference (UTR). UTR must be exactly 12 numeric digits (e.g. 412356789012) as shown on your UPI receipt."
+        )
+
+    # 3. Duplicate UTR check across all orders in database
+    duplicate_order = db.query(Order).filter(Order.utr_number == clean_utr, Order.id != order.id).first()
+    if duplicate_order:
+        raise HTTPException(
+            status_code=400,
+            detail=f"This UPI UTR reference ({clean_utr}) has already been submitted for order {duplicate_order.order_number}. Duplicate transactions are strictly prohibited."
+        )
+
     order.payment_method = req.payment_method
-    if req.utr_number:
-        order.utr_number = req.utr_number
-    order.status = "advance_paid"
-    order.advance_paid_at = datetime.utcnow()
+    order.utr_number = clean_utr
+
+    # Apply Coupon & discount if provided
+    if req.coupon_code:
+        order.coupon_code = req.coupon_code.strip().upper()
+    if req.discount_amount and req.discount_amount > 0:
+        order.discount_amount = float(req.discount_amount)
+        # Apply discount to total_price and balance_amount
+        order.total_price = max(0.0, float(order.total_price) - float(req.discount_amount))
+        order.balance_amount = max(0.0, float(order.total_price) - float(order.advance_amount))
+
+    # Anti-cheating verification workflow:
+    # If submitted by admin, auto-verify;
+    # If submitted by student, mark as 'payment_submitted' with payment_verified=False pending admin verification!
+    if current_user.role == "admin":
+        order.status = "advance_paid"
+        order.payment_verified = True
+        order.advance_paid_at = datetime.utcnow()
+        title = "30% Advance Payment Approved 🚀"
+        msg = f"Advance payment for {order.order_number} verified and approved. Development has officially started!"
+    else:
+        order.status = "payment_submitted"
+        order.payment_verified = False
+        title = "Payment Submitted for Verification ⏳"
+        msg = f"Payment receipt (UTR: {clean_utr}) submitted for order {order.order_number}. Mentor is verifying the transaction against the bank statement."
 
     db.commit()
     db.refresh(order)
 
+    # Notify student
     create_notification(
         db=db,
         user_id=order.student_id,
-        title="30% Advance Payment Confirmed 🚀",
-        message=f"Advance payment for {order.order_number} confirmed. Mentor has started development!",
+        title=title,
+        message=msg,
         order_id=order.id,
         channel="whatsapp",
         action_url=f"/order/{order.id}"
     )
+
+    # If student submitted, alert all admins
+    if current_user.role != "admin":
+        admins = db.query(User).filter(User.role == "admin").all()
+        for admin in admins:
+            create_notification(
+                db=db,
+                user_id=admin.id,
+                title="🔔 New Payment Submitted for Verification",
+                message=f"Order {order.order_number}: Student submitted UTR {clean_utr} for ₹{order.advance_amount}. Check bank statement and approve.",
+                order_id=order.id,
+                channel="in_app",
+                action_url="/admin/orders"
+            )
 
     return order_to_dict(order)
 
@@ -597,7 +667,7 @@ def accept_revision(
 
 
 # -------------------------------------------------------------
-# 3. 1-on-1 Code Walkthrough Scheduler
+# 3. 1-on-1 Code Walkthrough Scheduler (Max 3 sessions, 30-min slots)
 # -------------------------------------------------------------
 @router.post("/{order_id}/schedule-walkthrough")
 def schedule_walkthrough(
@@ -612,6 +682,16 @@ def schedule_walkthrough(
     if current_user.role == "student" and order.student_id != current_user.id:
         raise HTTPException(status_code=403, detail="Access denied")
 
+    # Limit check: Student can book max 3 walkthroughs per project
+    current_count = order.walkthrough_count or 0
+    if current_count >= 3:
+        raise HTTPException(
+            status_code=400,
+            detail="You have reached the maximum limit of 3 walkthrough sessions for this project."
+        )
+
+    order.walkthrough_count = current_count + 1
+
     random_token = uuid.uuid4().hex[:6]
     meeting_url = f"https://meet.jit.si/CampusGig-Walkthrough-{order.order_number}-{random_token}"
     order.walkthrough_scheduled_at = req.scheduled_at
@@ -621,20 +701,37 @@ def schedule_walkthrough(
     db.refresh(order)
 
     formatted_time = req.scheduled_at.strftime("%b %d, %Y at %I:%M %p")
+
+    # 1. Notify Student
     create_notification(
         db=db,
         user_id=order.student_id,
         title="1-on-1 Walkthrough Session Confirmed 🎥",
-        message=f"Live Code Walkthrough scheduled for {formatted_time}. Join via Meet link.",
+        message=f"Live 30-min Code Walkthrough (Session {order.walkthrough_count}/3) scheduled for {formatted_time}. Join via Meet link.",
         order_id=order.id,
         channel="whatsapp",
         action_url=meeting_url
     )
 
+    # 2. Notify Admin ("mereko ujska notification aye")
+    student_name = order.student.full_name if order.student else "Student"
+    admins = db.query(User).filter(User.role == "admin").all()
+    for admin in admins:
+        create_notification(
+            db=db,
+            user_id=admin.id,
+            title="🎥 New 1-on-1 Walkthrough Scheduled!",
+            message=f"{student_name} booked a 30-min walkthrough (Session {order.walkthrough_count}/3) for order {order.order_number} on {formatted_time}. Topic: {req.topic or 'Code Walkthrough & Viva Prep'}",
+            order_id=order.id,
+            channel="in_app",
+            action_url="/admin/orders"
+        )
+
     return {
-        "message": "Walkthrough session scheduled successfully",
+        "message": f"Walkthrough session {order.walkthrough_count}/3 scheduled successfully",
         "meeting_url": meeting_url,
-        "scheduled_at": req.scheduled_at.isoformat()
+        "scheduled_at": req.scheduled_at.isoformat(),
+        "walkthrough_count": order.walkthrough_count
     }
 
 
