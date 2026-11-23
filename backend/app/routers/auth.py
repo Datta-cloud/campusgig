@@ -146,17 +146,20 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
 @limiter.limit("60/minute")
 async def login(request: Request, db: Session = Depends(get_db)):
     content_type = request.headers.get("content-type", "")
+    expected_role = None
     if "application/json" in content_type:
         try:
             body = await request.json()
             username = body.get("username", "")
             password = body.get("password", "")
+            expected_role = body.get("role") or body.get("expected_role")
         except Exception:
             raise HTTPException(status_code=400, detail="Invalid JSON body")
     else:
         form = await request.form()
         username = str(form.get("username", ""))
         password = str(form.get("password", ""))
+        expected_role = form.get("role") or form.get("expected_role")
 
     if not username or not password:
         raise HTTPException(
@@ -175,6 +178,20 @@ async def login(request: Request, db: Session = Depends(get_db)):
         )
     if not user.is_active:
         raise HTTPException(status_code=400, detail="Account is deactivated")
+
+    # Strict Role Isolation: Student cannot use Admin Login, Admin cannot use Student Login
+    if expected_role:
+        clean_expected = str(expected_role).lower().strip()
+        if clean_expected == "admin" and user.role != "admin":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied. This account does not have administrator privileges. Please use Student Login."
+            )
+        if clean_expected == "student" and user.role == "admin":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Administrator account detected. Please use the Admin Login portal."
+            )
 
     # Update online status
     user.is_online = True

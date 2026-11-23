@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Zap, Shield, Clock, BrainCircuit, MessageCircle, ArrowRight, X, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Zap, Shield, Clock, BrainCircuit, MessageCircle, ArrowRight, X, Eye, EyeOff, Loader2, Lock, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 
@@ -24,7 +24,7 @@ const LandingPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
-  const { login, register } = useAuth();
+  const { login, register, user, logout } = useAuth();
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
@@ -76,11 +76,11 @@ const LandingPage: React.FC = () => {
       }
 
       if (tab === 'admin') {
-        await login(form.email, form.password);
+        await login(form.email, form.password, 'admin');
         setShowModal(false);
         navigate('/admin');
       } else if (mode === 'login') {
-        await login(form.email, form.password);
+        await login(form.email, form.password, 'student');
         setShowModal(false);
         navigate('/dashboard');
       } else {
@@ -124,10 +124,50 @@ const LandingPage: React.FC = () => {
         <div className="absolute inset-0 opacity-10"
           style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.4) 1px, transparent 1px), radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.4) 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 pt-16 pb-24 text-center">
-          <div className="inline-flex items-center gap-2 bg-slate-800/80 hover:bg-slate-800 backdrop-blur-md rounded-full px-4 py-2 mb-6 text-xs sm:text-sm font-semibold border border-slate-700/80 text-blue-300 shadow-sm transition-all">
-            <Zap className="w-4 h-4 text-blue-400" />
-            Your Personal Tech Mentor &amp; Academic Project Partner
-          </div>
+          {user?.role === 'admin' ? (
+            <div className="inline-flex items-center gap-2.5 bg-blue-500/15 border border-blue-500/30 rounded-2xl px-5 py-2.5 mb-6 text-xs sm:text-sm text-blue-200 shadow-sm backdrop-blur">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Signed in as Administrator (<strong>{user.username}</strong>)</span>
+              <button
+                type="button"
+                onClick={() => navigate('/admin')}
+                className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-3 py-1 rounded-xl text-xs ml-2 transition-all shadow-sm"
+              >
+                Go to Admin Panel →
+              </button>
+              <button
+                type="button"
+                onClick={() => logout()}
+                className="text-red-400 hover:text-red-300 font-bold text-xs underline ml-1"
+              >
+                Logout
+              </button>
+            </div>
+          ) : user?.role === 'student' ? (
+            <div className="inline-flex items-center gap-2.5 bg-emerald-500/15 border border-emerald-500/30 rounded-2xl px-5 py-2.5 mb-6 text-xs sm:text-sm text-emerald-200 shadow-sm backdrop-blur">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Signed in as Student (<strong>{user.full_name || user.username}</strong>)</span>
+              <button
+                type="button"
+                onClick={() => navigate('/dashboard')}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1 rounded-xl text-xs ml-2 transition-all shadow-sm"
+              >
+                Go to Dashboard →
+              </button>
+              <button
+                type="button"
+                onClick={() => logout()}
+                className="text-red-400 hover:text-red-300 font-bold text-xs underline ml-1"
+              >
+                Logout
+              </button>
+            </div>
+          ) : (
+            <div className="inline-flex items-center gap-2 bg-slate-800/80 hover:bg-slate-800 backdrop-blur-md rounded-full px-4 py-2 mb-6 text-xs sm:text-sm font-semibold border border-slate-700/80 text-blue-300 shadow-sm transition-all">
+              <Zap className="w-4 h-4 text-blue-400" />
+              Your Personal Tech Mentor &amp; Academic Project Partner
+            </div>
+          )}
           <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold mb-5 leading-tight tracking-tight text-white">
             Campus<span className="bg-gradient-to-r from-blue-400 via-indigo-300 to-cyan-300 bg-clip-text text-transparent">Gig</span>
           </h1>
@@ -145,25 +185,43 @@ const LandingPage: React.FC = () => {
           {/* Two big cards */}
           <div className="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto">
             <button
-              onClick={() => { setShowModal(true); setTab('student'); }}
+              onClick={() => {
+                if (user?.role === 'admin') {
+                  navigate('/admin');
+                } else if (user?.role === 'student') {
+                  navigate('/dashboard');
+                } else {
+                  setShowModal(true);
+                  setTab('student');
+                }
+              }}
               className="group bg-slate-900/80 hover:bg-slate-850/90 backdrop-blur-xl border border-slate-700/70 hover:border-blue-500/60 rounded-2xl p-7 sm:p-8 text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-blue-500/10 shadow-lg cursor-pointer"
             >
               <div className="w-14 h-14 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-3xl mb-4 group-hover:scale-105 transition-transform">🎓</div>
               <h2 className="text-2xl font-bold mb-2 text-white group-hover:text-blue-300 transition-colors">College Students</h2>
               <p className="text-slate-400 text-sm mb-5 leading-relaxed">ML, GenAI, Full-Stack, Android &amp; More</p>
               <span className="inline-flex items-center gap-1.5 text-blue-400 font-semibold text-sm group-hover:gap-2.5 transition-all">
-                Get Started <ArrowRight className="w-4 h-4" />
+                {user?.role === 'admin' ? 'Go to Admin Panel →' : user?.role === 'student' ? 'Go to Workspace →' : <>Get Started <ArrowRight className="w-4 h-4" /></>}
               </span>
             </button>
             <button
-              onClick={() => { setShowModal(true); setTab('student'); }}
+              onClick={() => {
+                if (user?.role === 'admin') {
+                  navigate('/admin');
+                } else if (user?.role === 'student') {
+                  navigate('/dashboard');
+                } else {
+                  setShowModal(true);
+                  setTab('student');
+                }
+              }}
               className="group bg-slate-900/80 hover:bg-slate-850/90 backdrop-blur-xl border border-slate-700/70 hover:border-indigo-500/60 rounded-2xl p-7 sm:p-8 text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-indigo-500/10 shadow-lg cursor-pointer"
             >
               <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-3xl mb-4 group-hover:scale-105 transition-transform">🎒</div>
               <h2 className="text-2xl font-bold mb-2 text-white group-hover:text-indigo-300 transition-colors">School Students</h2>
               <p className="text-slate-400 text-sm mb-5 leading-relaxed">Class 1-10 Assignments, Reports &amp; Projects</p>
               <span className="inline-flex items-center gap-1.5 text-indigo-400 font-semibold text-sm group-hover:gap-2.5 transition-all">
-                Get Started <ArrowRight className="w-4 h-4" />
+                {user?.role === 'admin' ? 'Go to Admin Panel →' : user?.role === 'student' ? 'Go to Workspace →' : <>Get Started <ArrowRight className="w-4 h-4" /></>}
               </span>
             </button>
           </div>
@@ -214,210 +272,368 @@ const LandingPage: React.FC = () => {
               </button>
 
               <div className="flex pr-12">
-                {(['student', 'admin'] as Tab[]).map(t => (
-                  <button
-                    key={t}
-                    onClick={() => { setTab(t); setError(''); setMode('login'); }}
-                    className={`flex-1 py-4 text-sm font-semibold capitalize transition-colors ${tab === t ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-                  >
-                    {t === 'student' ? '🎓 Student' : '🔑 Admin'} Login
-                  </button>
-                ))}
+                <button
+                  type="button"
+                  onClick={() => { setTab('student'); setError(''); setMode('login'); }}
+                  className={`flex-1 py-4 text-xs sm:text-sm font-semibold capitalize transition-colors flex items-center justify-center gap-1.5 ${
+                    tab === 'student' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  🎓 Student Login
+                  {user?.role === 'admin' && (
+                    <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded ml-1 border border-amber-200 inline-flex items-center gap-0.5">
+                      <Lock className="w-2.5 h-2.5" /> Blocked
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { setTab('admin'); setError(''); setMode('login'); }}
+                  className={`flex-1 py-4 text-xs sm:text-sm font-semibold capitalize transition-colors flex items-center justify-center gap-1.5 ${
+                    tab === 'admin' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  🔑 Admin Login
+                  {user?.role === 'student' && (
+                    <span className="text-[10px] font-bold text-rose-700 bg-rose-100 px-1.5 py-0.5 rounded ml-1 border border-rose-200 inline-flex items-center gap-0.5">
+                      <Lock className="w-2.5 h-2.5" /> Blocked
+                    </span>
+                  )}
+                </button>
               </div>
             </div>
 
             {/* Scrollable Form Body with own scroll */}
             <div className="p-5 sm:p-6 overflow-y-auto flex-1 max-h-[calc(92vh-64px)] custom-scrollbar overscroll-contain">
-              {tab === 'student' && (
-                <div className="flex gap-2 mb-6 bg-gray-100 p-1 rounded-xl">
-                  {(['login', 'register'] as AuthMode[]).map(m => (
-                    <button key={m} onClick={() => { setMode(m); setError(''); }}
-                      className={`flex-1 py-2 rounded-lg text-sm font-medium capitalize transition-all ${mode === m ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}>
-                      {m === 'login' ? 'Sign In' : 'Register'}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">{error}</div>}
-
-              <form onSubmit={handleSubmit} method="POST" action="#" className="space-y-4">
-                {tab === 'student' && mode === 'register' ? (
-                  <>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-1">Full Name *</label>
-                      <input
-                        name="full_name"
-                        type="text"
-                        placeholder="Full Name (e.g. Rahul Sharma)"
-                        value={form.full_name}
-                        onChange={handleChange}
-                        autoComplete="name"
-                        className="input-field"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-1">Username *</label>
-                      <input
-                        name="username"
-                        type="text"
-                        placeholder="Username (e.g. rahul_dev)"
-                        value={form.username}
-                        onChange={handleChange}
-                        autoComplete="username"
-                        className="input-field"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-1">Email Address *</label>
-                      <input
-                        name="email"
-                        type="email"
-                        placeholder="Email Address (e.g. rahul@example.com)"
-                        value={form.email}
-                        onChange={handleChange}
-                        autoComplete="email"
-                        className="input-field"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-1">Phone Number (Optional)</label>
-                      <input
-                        name="phone"
-                        type="tel"
-                        placeholder="Phone (e.g. 9876543210)"
-                        value={form.phone}
-                        onChange={handleChange}
-                        autoComplete="tel"
-                        className="input-field"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-1">Student Category</label>
-                      <select name="student_type" value={form.student_type} onChange={handleChange} className="input-field">
-                        <option value="college">🎓 College Student (B.Tech, BCA, MCA, M.Tech)</option>
-                        <option value="school">🎒 School Student (Class 6 - 12)</option>
-                      </select>
-                    </div>
-                    {form.student_type === 'college' ? (
-                      <div className="grid grid-cols-2 gap-2">
-                        <input name="college_name" placeholder="College Name" value={form.college_name} onChange={handleChange} className="input-field" />
-                        <input name="college_branch" placeholder="Branch (e.g. CSE, IT)" value={form.college_branch} onChange={handleChange} className="input-field" />
-                      </div>
-                    ) : (
-                      <input name="school_class" placeholder="Class (e.g. Class 10)" value={form.school_class} onChange={handleChange} className="input-field" />
-                    )}
-                    <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-1">Create Password *</label>
-                      <div className="relative">
-                        <input
-                          name="password"
-                          type={showPass ? 'text' : 'password'}
-                          autoComplete="new-password"
-                          placeholder="Create Secure Password"
-                          value={form.password}
-                          onChange={handleChange}
-                          className="input-field pr-10"
-                          required
-                        />
-                        <button type="button" onClick={() => setShowPass(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
-                          {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
-                      <p className="text-[11px] text-emerald-600 mt-1 flex items-center gap-1 font-medium">
-                        🔒 After registering, Google Password Manager will offer to save your credentials for automatic 1-click login!
-                      </p>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-1">
-                        {tab === 'admin' ? 'Admin Username' : 'Username or Email'}
-                      </label>
-                      <input
-                        name="email"
-                        type="text"
-                        autoComplete="username"
-                        placeholder={tab === 'admin' ? "Username (e.g. admin)" : "Username or Email"}
-                        value={form.email}
-                        onChange={handleChange}
-                        className="input-field"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-1">Password</label>
-                      <div className="relative">
-                        <input
-                          name="password"
-                          type={showPass ? 'text' : 'password'}
-                          autoComplete="current-password"
-                          placeholder="Password"
-                          value={form.password}
-                          onChange={handleChange}
-                          className="input-field pr-10"
-                          required
-                        />
-                        <button type="button" onClick={() => setShowPass(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
-                          {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {/* Remember Me Checkbox */}
-                <div className="flex items-center justify-between text-xs text-gray-500 pt-1">
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={rememberMe}
-                      onChange={e => setRememberMe(e.target.checked)}
-                      className="w-4 h-4 rounded text-blue-600 accent-blue-600 cursor-pointer"
-                    />
-                    <span>Remember credentials & auto-fill next time</span>
-                  </label>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="btn-primary w-full justify-center py-3 text-base font-bold shadow-md shadow-brand-500/20 disabled:opacity-50"
-                >
-                  {loading ? (
-                    <span className="flex items-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin" /> Logging in...
+              {user?.role === 'admin' && tab === 'student' ? (
+                <div className="p-6 text-center space-y-4">
+                  <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 mx-auto flex items-center justify-center font-bold">
+                    <Lock className="w-7 h-7" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full border border-amber-200">
+                      Admin Session Active
                     </span>
-                  ) : tab === 'admin' ? (
-                    '🔑 Admin Login'
-                  ) : mode === 'login' ? (
-                    '🚀 Sign In'
-                  ) : (
-                    '✨ Create Account'
+                    <h3 className="text-lg font-black text-slate-900 mt-2">Student Login Restricted</h3>
+                    <p className="text-xs text-slate-600 max-w-sm mx-auto leading-relaxed">
+                      You are currently logged in with administrator privileges (<strong>{user.username}</strong>). Student login &amp; registration are completely disabled until you log out.
+                    </p>
+                  </div>
+                  <div className="flex gap-2.5 pt-2 max-w-xs mx-auto">
+                    <button
+                      type="button"
+                      onClick={() => { setShowModal(false); navigate('/admin'); }}
+                      className="flex-1 btn-primary py-2.5 text-xs font-bold"
+                    >
+                      Go to Admin Panel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { logout(); setError(''); }}
+                      className="flex-1 btn-secondary py-2.5 text-xs font-bold text-red-600 hover:bg-red-50 flex items-center justify-center gap-1"
+                    >
+                      <LogOut className="w-3.5 h-3.5" /> Log Out
+                    </button>
+                  </div>
+                </div>
+              ) : user?.role === 'student' && tab === 'admin' ? (
+                <div className="p-6 text-center space-y-4">
+                  <div className="w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 border border-rose-200 mx-auto flex items-center justify-center font-bold">
+                    <Lock className="w-7 h-7" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-rose-700 bg-rose-100 px-2.5 py-0.5 rounded-full border border-rose-200">
+                      Student Session Active
+                    </span>
+                    <h3 className="text-lg font-black text-slate-900 mt-2">Admin Portal Restricted</h3>
+                    <p className="text-xs text-slate-600 max-w-sm mx-auto leading-relaxed">
+                      You are currently signed in as Student (<strong>{user.username}</strong>). The admin login portal is strictly inaccessible until you log out.
+                    </p>
+                  </div>
+                  <div className="flex gap-2.5 pt-2 max-w-xs mx-auto">
+                    <button
+                      type="button"
+                      onClick={() => { setShowModal(false); navigate('/dashboard'); }}
+                      className="flex-1 btn-primary py-2.5 text-xs font-bold"
+                    >
+                      Go to Dashboard
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { logout(); setError(''); }}
+                      className="flex-1 btn-secondary py-2.5 text-xs font-bold text-red-600 hover:bg-red-50 flex items-center justify-center gap-1"
+                    >
+                      <LogOut className="w-3.5 h-3.5" /> Log Out
+                    </button>
+                  </div>
+                </div>
+              ) : user?.role === 'admin' && tab === 'admin' ? (
+                <div className="p-6 text-center space-y-4">
+                  <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 border border-blue-200 mx-auto flex items-center justify-center font-bold">
+                    <Shield className="w-7 h-7" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-700 bg-blue-100 px-2.5 py-0.5 rounded-full border border-blue-200">
+                      Authenticated
+                    </span>
+                    <h3 className="text-lg font-black text-slate-900 mt-2">Administrator Session Active</h3>
+                    <p className="text-xs text-slate-600 max-w-sm mx-auto leading-relaxed">
+                      Signed in as <strong>{user.username}</strong>. Click below to enter the admin workspace or log out.
+                    </p>
+                  </div>
+                  <div className="flex gap-2.5 pt-2 max-w-xs mx-auto">
+                    <button
+                      type="button"
+                      onClick={() => { setShowModal(false); navigate('/admin'); }}
+                      className="flex-1 btn-primary py-2.5 text-xs font-bold"
+                    >
+                      Go to Admin Panel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { logout(); setError(''); }}
+                      className="flex-1 btn-secondary py-2.5 text-xs font-bold text-red-600 hover:bg-red-50 flex items-center justify-center gap-1"
+                    >
+                      <LogOut className="w-3.5 h-3.5" /> Log Out
+                    </button>
+                  </div>
+                </div>
+              ) : user?.role === 'student' && tab === 'student' ? (
+                <div className="p-6 text-center space-y-4">
+                  <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-200 mx-auto flex items-center justify-center font-bold">
+                    <Shield className="w-7 h-7" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                      Authenticated
+                    </span>
+                    <h3 className="text-lg font-black text-slate-900 mt-2">Student Session Active</h3>
+                    <p className="text-xs text-slate-600 max-w-sm mx-auto leading-relaxed">
+                      Signed in as <strong>{user.full_name || user.username}</strong>. Click below to enter your workspace or log out.
+                    </p>
+                  </div>
+                  <div className="flex gap-2.5 pt-2 max-w-xs mx-auto">
+                    <button
+                      type="button"
+                      onClick={() => { setShowModal(false); navigate('/dashboard'); }}
+                      className="flex-1 btn-primary py-2.5 text-xs font-bold"
+                    >
+                      Go to Dashboard
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { logout(); setError(''); }}
+                      className="flex-1 btn-secondary py-2.5 text-xs font-bold text-red-600 hover:bg-red-50 flex items-center justify-center gap-1"
+                    >
+                      <LogOut className="w-3.5 h-3.5" /> Log Out
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {tab === 'student' && (
+                    <div className="flex gap-2 mb-6 bg-gray-100 p-1 rounded-xl">
+                      {(['login', 'register'] as AuthMode[]).map(m => (
+                        <button key={m} onClick={() => { setMode(m); setError(''); }}
+                          className={`flex-1 py-2 rounded-lg text-sm font-medium capitalize transition-all ${mode === m ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}>
+                          {m === 'login' ? 'Sign In' : 'Register'}
+                        </button>
+                      ))}
+                    </div>
                   )}
-                </button>
-                {loading && (
-                  <p className="text-[11px] text-center text-slate-500 animate-pulse">
-                    Connecting to server... (Render cloud server waking up if idle)
-                  </p>
-                )}
-              </form>
+
+                  {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">{error}</div>}
+
+                  <form onSubmit={handleSubmit} method="POST" action="#" className="space-y-4">
+                    {tab === 'student' && mode === 'register' ? (
+                      <>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">Full Name *</label>
+                          <input
+                            name="full_name"
+                            type="text"
+                            placeholder="Full Name (e.g. Rahul Sharma)"
+                            value={form.full_name}
+                            onChange={handleChange}
+                            autoComplete="name"
+                            className="input-field"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">Username *</label>
+                          <input
+                            name="username"
+                            type="text"
+                            placeholder="Username (e.g. rahul_dev)"
+                            value={form.username}
+                            onChange={handleChange}
+                            autoComplete="username"
+                            className="input-field"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">Email Address *</label>
+                          <input
+                            name="email"
+                            type="email"
+                            placeholder="Email Address (e.g. rahul@example.com)"
+                            value={form.email}
+                            onChange={handleChange}
+                            autoComplete="email"
+                            className="input-field"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">Phone Number (Optional)</label>
+                          <input
+                            name="phone"
+                            type="tel"
+                            placeholder="Phone (e.g. 9876543210)"
+                            value={form.phone}
+                            onChange={handleChange}
+                            autoComplete="tel"
+                            className="input-field"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">Student Category</label>
+                          <select name="student_type" value={form.student_type} onChange={handleChange} className="input-field">
+                            <option value="college">🎓 College Student (B.Tech, BCA, MCA, M.Tech)</option>
+                            <option value="school">🎒 School Student (Class 6 - 12)</option>
+                          </select>
+                        </div>
+                        {form.student_type === 'college' ? (
+                          <div className="grid grid-cols-2 gap-2">
+                            <input name="college_name" placeholder="College Name" value={form.college_name} onChange={handleChange} className="input-field" />
+                            <input name="college_branch" placeholder="Branch (e.g. CSE, IT)" value={form.college_branch} onChange={handleChange} className="input-field" />
+                          </div>
+                        ) : (
+                          <input name="school_class" placeholder="Class (e.g. Class 10)" value={form.school_class} onChange={handleChange} className="input-field" />
+                        )}
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">Create Password *</label>
+                          <div className="relative">
+                            <input
+                              name="password"
+                              type={showPass ? 'text' : 'password'}
+                              autoComplete="new-password"
+                              placeholder="Create Secure Password"
+                              value={form.password}
+                              onChange={handleChange}
+                              className="input-field pr-10"
+                              required
+                            />
+                            <button type="button" onClick={() => setShowPass(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                              {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
+                          <p className="text-[11px] text-emerald-600 mt-1 flex items-center gap-1 font-medium">
+                            🔒 After registering, Google Password Manager will offer to save your credentials for automatic 1-click login!
+                          </p>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">
+                            {tab === 'admin' ? 'Admin Username' : 'Username or Email'}
+                          </label>
+                          <input
+                            name="email"
+                            type="text"
+                            autoComplete="username"
+                            placeholder={tab === 'admin' ? "Username (e.g. admin)" : "Username or Email"}
+                            value={form.email}
+                            onChange={handleChange}
+                            className="input-field"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">Password</label>
+                          <div className="relative">
+                            <input
+                              name="password"
+                              type={showPass ? 'text' : 'password'}
+                              autoComplete="current-password"
+                              placeholder="Password"
+                              value={form.password}
+                              onChange={handleChange}
+                              className="input-field pr-10"
+                              required
+                            />
+                            <button type="button" onClick={() => setShowPass(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                              {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    {/* Remember Me Checkbox */}
+                    <div className="flex items-center justify-between text-xs text-gray-500 pt-1">
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={rememberMe}
+                          onChange={e => setRememberMe(e.target.checked)}
+                          className="w-4 h-4 rounded text-blue-600 accent-blue-600 cursor-pointer"
+                        />
+                        <span>Remember credentials & auto-fill next time</span>
+                      </label>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="btn-primary w-full justify-center py-3 text-base font-bold shadow-md shadow-brand-500/20 disabled:opacity-50"
+                    >
+                      {loading ? (
+                        <span className="flex items-center gap-2">
+                          <Loader2 className="w-4 h-4 animate-spin" /> Logging in...
+                        </span>
+                      ) : tab === 'admin' ? (
+                        '🔑 Admin Login'
+                      ) : mode === 'login' ? (
+                        '🚀 Sign In'
+                      ) : (
+                        '✨ Create Account'
+                      )}
+                    </button>
+                    {loading && (
+                      <p className="text-[11px] text-center text-slate-500 animate-pulse">
+                        Connecting to server... (Render cloud server waking up if idle)
+                      </p>
+                    )}
+                  </form>
+                </>
+              )}
             </div>
           </div>
         </div>
       )}
 
       {/* Admin quick link */}
-      <button
-        onClick={() => { setShowModal(true); setTab('admin'); }}
-        className="fixed bottom-4 right-4 text-xs text-gray-400 hover:text-gray-600 bg-white border border-gray-200 px-3 py-1.5 rounded-full shadow-sm"
-      >
-        Admin Login
-      </button>
+      {user?.role === 'admin' ? (
+        <button
+          onClick={() => navigate('/admin')}
+          className="fixed bottom-4 right-4 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3.5 py-1.5 rounded-full shadow-md flex items-center gap-1.5 transition-all z-30"
+        >
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span>Admin Panel →</span>
+        </button>
+      ) : !user ? (
+        <button
+          onClick={() => { setShowModal(true); setTab('admin'); }}
+          className="fixed bottom-4 right-4 text-xs text-gray-400 hover:text-gray-600 bg-white border border-gray-200 px-3 py-1.5 rounded-full shadow-sm z-30"
+        >
+          Admin Login
+        </button>
+      ) : null}
     </div>
   );
 };

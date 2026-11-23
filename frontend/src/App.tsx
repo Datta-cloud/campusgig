@@ -36,8 +36,14 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean 
     return <Navigate to="/" state={{ from: location }} replace />;
   }
 
+  // Student trying to access admin pages: redirect to student dashboard
   if (adminOnly && user.role !== 'admin') {
     return <Navigate to="/dashboard" replace />;
+  }
+
+  // Admin trying to access student pages: redirect to admin panel
+  if (!adminOnly && user.role === 'admin') {
+    return <Navigate to="/admin" replace />;
   }
 
   return <>{children}</>;
