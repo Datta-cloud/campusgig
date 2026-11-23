@@ -67,51 +67,6 @@ export const OrderDetail: React.FC = () => {
     requiredPercent: number;
   } | null>(null);
 
-  // Admin Direct Upload State
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  const [uploadPhase, setUploadPhase] = useState('Phase 1: Project Scope, Synopsis & Architecture');
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [uploadTotalPrice, setUploadTotalPrice] = useState<string>('');
-  const [uploading, setUploading] = useState(false);
-
-  const PHASES = [
-    { id: 'Phase 1: Project Scope, Synopsis & Architecture', label: '📐 Phase 1: Scope, Synopsis & UML Architecture (Unlocked at 30% Advance)', type: 'phase_1' },
-    { id: 'Phase 2: Working Prototype & Code Draft', label: '🚀 Phase 2: Working Prototype & Code Draft (Unlocked at 50% Milestone)', type: 'phase_2' },
-    { id: 'Phase 3: Full Production Source Code Package', label: '📦 Phase 3: Full Source Code Package (ZIP) (Unlocked at 100% Settlement)', type: 'phase_3' },
-    { id: 'Phase 4: Comprehensive Project Report & IEEE Paper', label: '📄 Phase 4: Comprehensive IEEE Report & PPT Presentation (Unlocked at 100% Settlement)', type: 'phase_4' },
-    { id: 'Phase 5: Viva & Exam Defense Guide', label: '🎓 Phase 5: Viva Defense Guide & Turnitin Verification (Unlocked at 100% Settlement)', type: 'phase_5' },
-    { id: 'Phase 6: Code Walkthrough Video', label: '🎥 Phase 6: Code Walkthrough Video Recording (Unlocked at 100% Settlement)', type: 'phase_6' },
-    { id: 'Reference Material', label: '🛠️ Reference Material / Dataset (Unlocked at 30% Advance)', type: 'reference' },
-  ];
-
-  const handleAdminUpload = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!uploadFile || !order) return;
-
-    const selectedPhaseObj = PHASES.find(p => p.id === uploadPhase);
-    const formData = new FormData();
-    formData.append('file', uploadFile);
-    formData.append('file_type', selectedPhaseObj?.type || 'deliverable');
-    formData.append('phase_name', uploadPhase);
-    if (uploadTotalPrice && Number(uploadTotalPrice) > 0) {
-      formData.append('updated_total_price', uploadTotalPrice);
-    }
-
-    setUploading(true);
-    try {
-      await api.post(`/admin/orders/${order.id}/upload-deliverable`, formData);
-      alert(`Deliverable uploaded for ${uploadPhase}! Student can download it now.`);
-      setShowUploadModal(false);
-      setUploadFile(null);
-      setUploadTotalPrice('');
-      fetchOrder();
-    } catch (err: any) {
-      alert(getErrorMessage(err, 'Failed to upload deliverable'));
-    } finally {
-      setUploading(false);
-    }
-  };
-
   const handleAdminVerifyPayment = async (action: 'approve' | 'reject') => {
     if (!order) return;
     let reason: string | undefined = undefined;
@@ -1020,17 +975,6 @@ export const OrderDetail: React.FC = () => {
                 Deliverables prepared by your verified mentor are organized phase-wise below. Files unlock automatically as payment milestones are reached.
               </p>
             </div>
-
-            {/* Admin Upload Trigger Button */}
-            {user?.role === 'admin' && (
-              <button
-                type="button"
-                onClick={() => setShowUploadModal(true)}
-                className="btn-primary text-xs flex items-center gap-2 px-4 py-2.5 font-bold shadow-md shadow-brand-500/20 shrink-0"
-              >
-                <Upload className="w-4 h-4" /> Upload Phase Deliverable
-              </button>
-            )}
           </div>
 
           {/* 3-Step Milestone Progression Tracker */}
@@ -1233,20 +1177,6 @@ export const OrderDetail: React.FC = () => {
                             <Lock className="w-3.5 h-3.5 text-amber-600" /> Locked • {phase.reqPercent}% Milestone
                           </span>
                         )}
-
-                        {user?.role === 'admin' && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const match = PHASES.find(p => p.type === phase.id || p.id.startsWith(phase.title.slice(0, 7)));
-                              if (match) setUploadPhase(match.id);
-                              setShowUploadModal(true);
-                            }}
-                            className="text-xs px-2.5 py-1 font-bold text-brand-700 bg-brand-50 hover:bg-brand-100 rounded-lg border border-brand-200 flex items-center gap-1"
-                          >
-                            <Upload className="w-3 h-3" /> Upload
-                          </button>
-                        )}
                       </div>
                     </div>
 
@@ -1342,19 +1272,6 @@ export const OrderDetail: React.FC = () => {
                         <p className="text-[11px] text-slate-400 max-w-sm mx-auto">
                           Mentor is compiling files for this milestone. As soon as uploaded, it will automatically appear here under {phase.milestoneText}.
                         </p>
-                        {user?.role === 'admin' && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const match = PHASES.find(p => p.type === phase.id || p.id.startsWith(phase.title.slice(0, 7)));
-                              if (match) setUploadPhase(match.id);
-                              setShowUploadModal(true);
-                            }}
-                            className="btn-secondary text-[11px] px-3 py-1 font-bold inline-flex items-center gap-1 mt-1"
-                          >
-                            <Upload className="w-3 h-3" /> Upload for {phase.title.split(':')[0]}
-                          </button>
-                        )}
                       </div>
                     )}
                   </div>
@@ -1381,101 +1298,6 @@ export const OrderDetail: React.FC = () => {
             </div>
           </div>
         </div>
-
-        {/* Admin Direct Upload Modal */}
-        {showUploadModal && (
-          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <form onSubmit={handleAdminUpload} className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl animate-slide-up">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-brand-600 bg-brand-50 px-2 py-0.5 rounded border border-brand-200">
-                    Mentor Deliverables Uploader
-                  </span>
-                  <h3 className="font-bold text-slate-900 text-base mt-1">
-                    Upload Phase Deliverable ({order.order_number})
-                  </h3>
-                </div>
-                <button type="button" onClick={() => setShowUploadModal(false)} className="text-slate-400 hover:text-slate-600">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Select Project Phase / Deliverable Type *</label>
-                <select
-                  value={uploadPhase}
-                  onChange={e => setUploadPhase(e.target.value)}
-                  className="input-field text-xs font-semibold"
-                >
-                  {PHASES.map(p => (
-                    <option key={p.id} value={p.id}>
-                      {p.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Select File to Upload (.zip, .pdf, .pptx, .mp4 - up to 500MB) *</label>
-                <input
-                  type="file"
-                  onChange={e => setUploadFile(e.target.files?.[0] || null)}
-                  className="w-full text-xs text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 cursor-pointer border border-slate-200 rounded-xl"
-                  required
-                />
-                <p className="text-[11px] text-slate-400 mt-1">
-                  Upload full project packages, video walkthroughs, and code repositories up to 500MB.
-                </p>
-              </div>
-
-              {/* Adjust / Update Total Amount */}
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-                <label className="block text-xs font-bold text-slate-700">
-                  Adjust Total Project Price (₹) (Optional)
-                </label>
-                <div className="flex items-center gap-3">
-                  <div className="relative flex-1">
-                    <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">₹</span>
-                    <input
-                      type="number"
-                      step="1"
-                      value={uploadTotalPrice}
-                      onChange={e => setUploadTotalPrice(e.target.value)}
-                      placeholder={String(order.total_price)}
-                      className="w-full input-field pl-7 text-xs font-bold text-slate-800"
-                    />
-                  </div>
-                  <div className="text-right text-[11px] bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-sm">
-                    <span className="text-slate-400 text-[10px] block">New Balance:</span>
-                    <span className="font-extrabold text-brand-600">
-                      ₹{Math.max(0, (Number(uploadTotalPrice) || order.total_price) - (order.advance_amount || 0))}
-                    </span>
-                  </div>
-                </div>
-                <p className="text-[10px] text-slate-500">
-                  Advance paid was ₹{order.advance_amount || 0}. If updated, student's remaining payable balance updates automatically.
-                </p>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setShowUploadModal(false)}
-                  className="btn-secondary text-xs px-4 py-2 font-bold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={uploading || !uploadFile}
-                  className="btn-primary text-xs px-5 py-2 font-bold"
-                >
-                  {uploading ? 'Uploading...' : 'Upload & Deliver to Student'}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
 
         {/* AI Scope of Work Overview */}
         {aiScopeData && (
