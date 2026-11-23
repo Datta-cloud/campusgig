@@ -11,6 +11,7 @@ import CoursesPage from './pages/CoursesPage';
 import VerifyCertificatePage from './pages/VerifyCertificatePage';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminOrders from './pages/AdminOrders';
+import AdminMeetings from './pages/AdminMeetings';
 import AdminPricing from './pages/AdminPricing';
 import AdminStudents from './pages/AdminStudents';
 import Navbar from './components/Navbar';
@@ -146,6 +147,14 @@ export const App: React.FC = () => {
               element={
                 <ProtectedRoute adminOnly>
                   <AdminOrders />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/meetings"
+              element={
+                <ProtectedRoute adminOnly>
+                  <AdminMeetings />
                 </ProtectedRoute>
               }
             />

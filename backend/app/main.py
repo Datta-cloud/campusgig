@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from sqlalchemy import text
 from app.database import engine, SessionLocal
-from app.models import User, PricingConfig, Order, ChatMessage, OrderAttachment, Course, CourseEnrollment, PaymentSubmission
+from app.models import User, PricingConfig, Order, ChatMessage, OrderAttachment, Course, CourseEnrollment, PaymentSubmission, WalkthroughSession
 from app.database import Base
 from app.services.auth_service import hash_password
 from app.config import UPLOAD_DIR, UPLOAD_DIR_REFERENCES, UPLOAD_DIR_THUMBNAILS, CORS_ALLOWED_ORIGINS, DATABASE_URL
@@ -242,6 +242,49 @@ async def lifespan(app: FastAPI):
                     """))
             except Exception as e:
                 print(f"⚠️ payment_submissions table note: {e}")
+
+        # Ensure walkthrough_sessions table exists (Postgres & SQLite)
+        try:
+            with engine.begin() as conn:
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS walkthrough_sessions (
+                        id SERIAL PRIMARY KEY,
+                        order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+                        student_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                        session_number INTEGER DEFAULT 1,
+                        topic VARCHAR,
+                        scheduled_at TIMESTAMP NOT NULL,
+                        duration_minutes INTEGER DEFAULT 30,
+                        meeting_url VARCHAR NOT NULL,
+                        status VARCHAR DEFAULT 'scheduled',
+                        mentor_notes TEXT,
+                        recording_url VARCHAR,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """))
+        except Exception:
+            try:
+                with engine.begin() as conn:
+                    conn.execute(text("""
+                        CREATE TABLE IF NOT EXISTS walkthrough_sessions (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            order_id INTEGER NOT NULL,
+                            student_id INTEGER NOT NULL,
+                            session_number INTEGER DEFAULT 1,
+                            topic VARCHAR,
+                            scheduled_at DATETIME NOT NULL,
+                            duration_minutes INTEGER DEFAULT 30,
+                            meeting_url VARCHAR NOT NULL,
+                            status VARCHAR DEFAULT 'scheduled',
+                            mentor_notes TEXT,
+                            recording_url VARCHAR,
+                            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """))
+            except Exception as e:
+                print(f"⚠️ walkthrough_sessions table note: {e}")
 
         # Reset default artificial wallet balances to 0.0 for users without referrals
         try:

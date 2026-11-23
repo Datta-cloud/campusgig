@@ -1010,6 +1010,20 @@ def schedule_walkthrough(
     order.walkthrough_scheduled_at = req.scheduled_at
     order.walkthrough_meeting_url = meeting_url
 
+    # Create WalkthroughSession record
+    from app.models.walkthrough_session import WalkthroughSession
+    session_record = WalkthroughSession(
+        order_id=order.id,
+        student_id=order.student_id,
+        session_number=order.walkthrough_count,
+        topic=req.topic or "Code Walkthrough & Viva Prep",
+        scheduled_at=req.scheduled_at,
+        duration_minutes=30,
+        meeting_url=meeting_url,
+        status="scheduled"
+    )
+    db.add(session_record)
+
     db.commit()
     db.refresh(order)
 
@@ -1026,7 +1040,7 @@ def schedule_walkthrough(
         action_url=meeting_url
     )
 
-    # 2. Notify Admin ("mereko ujska notification aye")
+    # 2. Notify Admin ("mereko uska notification aye aur direct meetings section me le jaye")
     student_name = order.student.full_name if order.student else "Student"
     admins = db.query(User).filter(User.role == "admin").all()
     for admin in admins:
@@ -1037,7 +1051,7 @@ def schedule_walkthrough(
             message=f"{student_name} booked a 30-min walkthrough (Session {order.walkthrough_count}/3) for order {order.order_number} on {formatted_time}. Topic: {req.topic or 'Code Walkthrough & Viva Prep'}",
             order_id=order.id,
             channel="in_app",
-            action_url="/admin/orders"
+            action_url="/admin/meetings"
         )
 
     return {
@@ -1046,6 +1060,37 @@ def schedule_walkthrough(
         "scheduled_at": req.scheduled_at.isoformat(),
         "walkthrough_count": order.walkthrough_count
     }
+
+
+@router.get("/user/meetings")
+def get_user_meetings(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    from app.models.walkthrough_session import WalkthroughSession
+    sessions = db.query(WalkthroughSession).filter(
+        WalkthroughSession.student_id == current_user.id
+    ).order_by(WalkthroughSession.scheduled_at.asc()).all()
+
+    result = []
+    for s in sessions:
+        order = s.order
+        result.append({
+            "id": s.id,
+            "order_id": s.order_id,
+            "order_number": order.order_number if order else f"ORD-{s.order_id}",
+            "project_title": order.project_title if order else "Project Walkthrough",
+            "session_number": s.session_number,
+            "topic": s.topic or "Code Walkthrough & Viva Prep",
+            "scheduled_at": s.scheduled_at.isoformat(),
+            "duration_minutes": s.duration_minutes,
+            "meeting_url": s.meeting_url,
+            "status": s.status,
+            "mentor_notes": s.mentor_notes,
+            "recording_url": s.recording_url,
+            "created_at": s.created_at.isoformat() if s.created_at else None
+        })
+    return result
 
 
 # -------------------------------------------------------------

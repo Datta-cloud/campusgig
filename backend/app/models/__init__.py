@@ -7,12 +7,14 @@ from app.models.course import Course, CourseEnrollment
 from app.models.notification import Notification
 from app.models.coupon import Coupon
 from app.models.payment_submission import PaymentSubmission
+from app.models.walkthrough_session import WalkthroughSession
 
 __all__ = [
     "User",
     "PricingConfig",
     "Coupon",
     "PaymentSubmission",
+    "WalkthroughSession",
     "Order",
     "OrderGroupMember",
     "ChatMessage",

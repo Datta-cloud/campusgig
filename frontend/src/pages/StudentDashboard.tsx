@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, MessageCircle, Clock, CheckCircle, TrendingUp, ExternalLink, ShieldCheck, Sparkles } from 'lucide-react';
+import { Plus, MessageCircle, Clock, CheckCircle, TrendingUp, ExternalLink, ShieldCheck, Sparkles, Video } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import { Order } from '../types';
@@ -50,6 +50,9 @@ const StudentDashboard: React.FC = () => {
   const activeOrders = orders.filter(o => !['completed', 'cancelled'].includes(o.status));
   const completedOrders = orders.filter(o => o.status === 'completed');
   const readyReviewOrders = orders.filter(o => o.status === 'ready_for_review');
+  const upcomingWalkthroughOrder = orders.find(
+    o => o.walkthrough_meeting_url && o.walkthrough_scheduled_at && new Date(o.walkthrough_scheduled_at) > new Date(Date.now() - 4 * 3600 * 1000)
+  );
   const totalSpent = orders.reduce((sum, o) => sum + (o.advance_amount || 0) + (o.status === 'completed' ? (o.balance_amount || 0) : 0), 0);
 
   const stats = [
@@ -79,6 +82,37 @@ const StudentDashboard: React.FC = () => {
           </Link>
         </div>
       </div>
+
+      {/* 1-on-1 Walkthrough Session Live Banner */}
+      {upcomingWalkthroughOrder && (
+        <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-700 text-white p-5 rounded-2xl shadow-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 animate-slide-up">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shrink-0">
+              <Video className="w-6 h-6 animate-pulse" />
+            </div>
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-200 bg-white/10 px-2 py-0.5 rounded">
+                Live 1-on-1 Mentorship Session
+              </span>
+              <h3 className="font-bold text-base sm:text-lg mt-0.5">
+                {upcomingWalkthroughOrder.project_title} ({upcomingWalkthroughOrder.order_number})
+              </h3>
+              <p className="text-xs text-emerald-100 mt-0.5">
+                Scheduled for {new Date(upcomingWalkthroughOrder.walkthrough_scheduled_at!).toLocaleString('en-IN', { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })} IST. Click to join your live mentor room.
+              </p>
+            </div>
+          </div>
+
+          <a
+            href={upcomingWalkthroughOrder.walkthrough_meeting_url}
+            target="_blank"
+            rel="noreferrer"
+            className="bg-white text-emerald-800 hover:bg-emerald-50 font-bold text-xs px-5 py-3 rounded-xl shadow-md flex items-center justify-center gap-2 shrink-0 transition-all"
+          >
+            <Video className="w-4 h-4 text-emerald-700" /> Enter Live Meet Room
+          </a>
+        </div>
+      )}
 
       {/* Action Required: Ready for Review Alert Banner */}
       {readyReviewOrders.length > 0 && (

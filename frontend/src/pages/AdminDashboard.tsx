@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   TrendingUp, Users, ShoppingBag, Clock, CheckCircle, IndianRupee,
-  MessageCircle, ExternalLink, ArrowUpRight, BarChart2, Shield
+  MessageCircle, ExternalLink, ArrowUpRight, BarChart2, Shield, Video
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -94,11 +94,14 @@ export const AdminDashboard: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Link to="/admin/meetings" className="btn-primary text-xs px-4 py-2 font-bold bg-gradient-to-r from-emerald-600 to-teal-600 flex items-center gap-1.5 shadow-md shadow-emerald-600/20">
+            <Video className="w-4 h-4" /> 1-on-1 Meeting Schedules
+          </Link>
           <Link to="/admin/pricing" className="btn-secondary text-xs px-4 py-2 font-bold">
             Manage Prices & Add-ons
           </Link>
-          <Link to="/admin/orders" className="btn-primary text-xs px-4 py-2 font-bold">
+          <Link to="/admin/orders" className="btn-secondary text-xs px-4 py-2 font-bold">
             View All Orders
           </Link>
         </div>

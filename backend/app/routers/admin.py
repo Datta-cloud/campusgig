@@ -625,4 +625,244 @@ def verify_order_payment(
         raise HTTPException(status_code=400, detail="Invalid action. Must be 'approve' or 'reject'.")
 
 
+# ---------------------------------------------------------------------------
+# 1-on-1 Meeting Schedules Management for Mentor / Admin
+# ---------------------------------------------------------------------------
+
+class UpdateMeetingRequest(BaseModel):
+    status: Optional[str] = None  # "completed", "cancelled", "rescheduled", "scheduled"
+    scheduled_at: Optional[datetime] = None
+    meeting_url: Optional[str] = None
+    mentor_notes: Optional[str] = None
+    recording_url: Optional[str] = None
+
+
+class AdminScheduleMeetingRequest(BaseModel):
+    order_id: int
+    scheduled_at: datetime
+    topic: Optional[str] = "1-on-1 Code Walkthrough & Project Viva Mentorship"
+    meeting_url: Optional[str] = None
+
+
+@router.get("/meetings")
+def get_admin_meetings(
+    status: Optional[str] = Query("all"),
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    from app.models.walkthrough_session import WalkthroughSession
+
+    # 1. Backfill: auto-create WalkthroughSession for legacy orders that had walkthrough_scheduled_at
+    try:
+        legacy_orders = db.query(Order).filter(
+            Order.walkthrough_scheduled_at.isnot(None)
+        ).all()
+        for lo in legacy_orders:
+            existing = db.query(WalkthroughSession).filter(
+                WalkthroughSession.order_id == lo.id,
+                WalkthroughSession.scheduled_at == lo.walkthrough_scheduled_at
+            ).first()
+            if not existing:
+                new_s = WalkthroughSession(
+                    order_id=lo.id,
+                    student_id=lo.student_id,
+                    session_number=lo.walkthrough_count or 1,
+                    topic="1-on-1 Code Walkthrough & Viva Prep",
+                    scheduled_at=lo.walkthrough_scheduled_at,
+                    duration_minutes=30,
+                    meeting_url=lo.walkthrough_meeting_url or f"https://meet.jit.si/CampusGig-Walkthrough-{lo.order_number}",
+                    status="completed" if lo.status == "completed" else "scheduled"
+                )
+                db.add(new_s)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+
+    # 2. Query all sessions
+    query = db.query(WalkthroughSession)
+    if status and status != "all":
+        query = query.filter(WalkthroughSession.status == status)
+
+    sessions = query.order_by(WalkthroughSession.scheduled_at.desc()).all()
+
+    now = datetime.utcnow()
+    today_start = datetime(now.year, now.month, now.day)
+    today_end = today_start + timedelta(days=1)
+
+    result = []
+    upcoming_count = 0
+    today_count = 0
+    completed_count = 0
+
+    for s in sessions:
+        order = s.order
+        student = s.student or (order.student if order else None)
+
+        is_today = today_start <= s.scheduled_at < today_end
+        is_upcoming = s.scheduled_at >= now and s.status == "scheduled"
+        if is_upcoming:
+            upcoming_count += 1
+        if is_today and s.status == "scheduled":
+            today_count += 1
+        if s.status == "completed":
+            completed_count += 1
+
+        result.append({
+            "id": s.id,
+            "order_id": s.order_id,
+            "order_number": order.order_number if order else f"CG-ORD-{s.order_id}",
+            "project_title": order.project_title if order else "Capstone Project",
+            "order_status": order.status if order else "unknown",
+            "student_id": s.student_id,
+            "student_name": student.full_name if student else "Student",
+            "student_email": student.email if student else "",
+            "student_phone": getattr(student, "phone", "") or "",
+            "session_number": s.session_number or 1,
+            "topic": s.topic or "Code Walkthrough & Viva Prep",
+            "scheduled_at": s.scheduled_at.isoformat(),
+            "duration_minutes": s.duration_minutes or 30,
+            "meeting_url": s.meeting_url,
+            "status": s.status,
+            "mentor_notes": s.mentor_notes,
+            "recording_url": s.recording_url,
+            "created_at": s.created_at.isoformat() if s.created_at else None,
+            "is_today": is_today,
+            "is_upcoming": is_upcoming
+        })
+
+    return {
+        "meetings": result,
+        "total_count": len(result),
+        "upcoming_count": upcoming_count,
+        "today_count": today_count,
+        "completed_count": completed_count
+    }
+
+
+@router.put("/meetings/{session_id}")
+def update_admin_meeting(
+    session_id: int,
+    req: UpdateMeetingRequest,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    from app.models.walkthrough_session import WalkthroughSession
+    from app.services.notification_service import create_notification
+
+    session = db.query(WalkthroughSession).filter(WalkthroughSession.id == session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Meeting session not found")
+
+    order = session.order
+
+    if req.status:
+        session.status = req.status
+    if req.scheduled_at:
+        session.scheduled_at = req.scheduled_at
+        if order:
+            order.walkthrough_scheduled_at = req.scheduled_at
+    if req.meeting_url:
+        session.meeting_url = req.meeting_url
+        if order:
+            order.walkthrough_meeting_url = req.meeting_url
+    if req.mentor_notes is not None:
+        session.mentor_notes = req.mentor_notes
+    if req.recording_url is not None:
+        session.recording_url = req.recording_url
+
+    session.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(session)
+
+    # Notifications to Student
+    if order and req.status == "completed":
+        create_notification(
+            db=db,
+            user_id=session.student_id,
+            title="1-on-1 Walkthrough Session Completed 🎉",
+            message=f"Your walkthrough session for {order.order_number} has been conducted and marked complete by your mentor. Check your order room for any mentor notes or recording.",
+            order_id=order.id,
+            channel="whatsapp",
+            action_url=f"/order/{order.id}"
+        )
+    elif order and req.scheduled_at:
+        formatted_time = req.scheduled_at.strftime("%b %d, %Y at %I:%M %p")
+        create_notification(
+            db=db,
+            user_id=session.student_id,
+            title="Walkthrough Session Rescheduled 📅",
+            message=f"Mentor updated your 1-on-1 walkthrough session for {order.order_number} to {formatted_time}. Join via updated Meet link.",
+            order_id=order.id,
+            channel="whatsapp",
+            action_url=session.meeting_url
+        )
+
+    return {
+        "success": True,
+        "message": f"Session #{session.id} updated successfully",
+        "meeting": {
+            "id": session.id,
+            "status": session.status,
+            "scheduled_at": session.scheduled_at.isoformat(),
+            "meeting_url": session.meeting_url,
+            "mentor_notes": session.mentor_notes,
+            "recording_url": session.recording_url
+        }
+    }
+
+
+@router.post("/meetings/schedule")
+def admin_schedule_meeting(
+    req: AdminScheduleMeetingRequest,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    from app.models.walkthrough_session import WalkthroughSession
+    from app.services.notification_service import create_notification
+    import uuid
+
+    order = db.query(Order).filter(Order.id == req.order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    meeting_url = req.meeting_url or f"https://meet.jit.si/CampusGig-Walkthrough-{order.order_number}-{uuid.uuid4().hex[:6]}"
+
+    order.walkthrough_count = (order.walkthrough_count or 0) + 1
+    order.walkthrough_scheduled_at = req.scheduled_at
+    order.walkthrough_meeting_url = meeting_url
+
+    session = WalkthroughSession(
+        order_id=order.id,
+        student_id=order.student_id,
+        session_number=order.walkthrough_count,
+        topic=req.topic or "1-on-1 Code Walkthrough & Project Viva Mentorship",
+        scheduled_at=req.scheduled_at,
+        duration_minutes=30,
+        meeting_url=meeting_url,
+        status="scheduled"
+    )
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+
+    formatted_time = req.scheduled_at.strftime("%b %d, %Y at %I:%M %p")
+    create_notification(
+        db=db,
+        user_id=order.student_id,
+        title="Mentor Scheduled 1-on-1 Walkthrough 🎥",
+        message=f"Mentor scheduled a 1-on-1 walkthrough for {order.order_number} on {formatted_time}. Click to join meeting room.",
+        order_id=order.id,
+        channel="whatsapp",
+        action_url=meeting_url
+    )
+
+    return {
+        "success": True,
+        "message": f"Walkthrough session scheduled for {order.order_number}",
+        "meeting_id": session.id,
+        "meeting_url": meeting_url,
+        "scheduled_at": req.scheduled_at.isoformat()
+    }
+
+
 
