@@ -4,7 +4,7 @@ import uuid
 import re
 import hmac
 import hashlib
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Response, Request
 from sqlalchemy.orm import Session
@@ -16,6 +16,7 @@ from app.limiter import limiter
 from app.models.order import Order, OrderGroupMember
 from app.models.user import User
 from app.models.attachment import OrderAttachment
+from app.models.payment_submission import PaymentSubmission
 from app.services.auth_service import get_current_user, require_admin, require_student
 from app.services.pricing_service import calculate_order_price
 from app.services.ai_service import (
@@ -108,6 +109,7 @@ def generate_order_number(db: Session) -> str:
 
 
 def order_to_dict(order: Order) -> dict:
+    pending_sub = next((s for s in (order.payment_submissions or []) if s.status == "pending"), None)
     return {
         "id": order.id,
         "order_number": order.order_number,
@@ -182,12 +184,20 @@ def order_to_dict(order: Order) -> dict:
             {
                 "id": a.id,
                 "file_name": a.file_name,
-                "file_url": a.file_url if a.file_url.startswith("http") else f"http://127.0.0.1:8001{a.file_url}",
+                "file_url": f"/api/orders/{order.id}/download/{a.id}",
+                "raw_file_url": a.file_url,
                 "file_type": a.file_type,
                 "uploaded_by": a.uploaded_by,
                 "created_at": a.created_at.isoformat() if a.created_at else None
             } for a in (order.attachments or [])
-        ]
+        ],
+        "pending_payment_submission": {
+            "id": pending_sub.id,
+            "amount": pending_sub.amount,
+            "utr_number": pending_sub.utr_number,
+            "payment_type": pending_sub.payment_type,
+            "created_at": pending_sub.created_at.isoformat() if pending_sub.created_at else None
+        } if pending_sub else None
     }
 
 
@@ -228,6 +238,23 @@ def validate_coupon_endpoint(req: ValidateCouponRequest, db: Session = Depends(g
         "discount_percent": coupon.discount_percent,
         "description": coupon.description or f"Flat {coupon.discount_percent}% off",
         "message": f"🎉 Coupon '{coupon.code}' applied! Flat {coupon.discount_percent}% discount applied."
+    }
+
+
+@router.get("/user/payment-quota")
+def get_user_payment_quota(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+    used_count = db.query(PaymentSubmission).filter(
+        PaymentSubmission.student_id == current_user.id,
+        PaymentSubmission.created_at >= thirty_days_ago
+    ).count()
+    return {
+        "monthly_limit": 3,
+        "used": used_count,
+        "remaining": max(0, 3 - used_count)
     }
 
 
@@ -280,9 +307,16 @@ def create_order(
         student_notes=req.student_notes,
         status="pending_payment"
     )
-    db.add(order)
-    db.commit()
-    db.refresh(order)
+    try:
+        db.add(order)
+        db.commit()
+        db.refresh(order)
+    except Exception as db_err:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error while saving order: {str(db_err)}"
+        )
     return order_to_dict(order)
 
 
@@ -352,7 +386,7 @@ def update_order_status(
         raise HTTPException(status_code=404, detail="Order not found")
 
     valid_statuses = [
-        "pending_payment", "payment_submitted", "advance_paid",
+        "pending_payment", "payment_submitted", "balance_submitted", "advance_paid",
         "in_progress", "ready_for_review", "completed",
         "cancelled", "revision_requested"
     ]
@@ -406,6 +440,19 @@ def confirm_payment(
     if current_user.role == "student" and order.student_id != current_user.id:
         raise HTTPException(status_code=403, detail="Access denied")
 
+    # Monthly submission limit check (Max 3 submissions per month per student)
+    if current_user.role != "admin":
+        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+        user_submissions_count = db.query(PaymentSubmission).filter(
+            PaymentSubmission.student_id == current_user.id,
+            PaymentSubmission.created_at >= thirty_days_ago
+        ).count()
+        if user_submissions_count >= 3:
+            raise HTTPException(
+                status_code=429,
+                detail="Monthly payment submission limit reached (Maximum 3 submissions per month). Please contact admin for manual assistance."
+            )
+
     # 1. Validate UTR is present
     if not req.utr_number or not req.utr_number.strip():
         raise HTTPException(
@@ -422,7 +469,7 @@ def confirm_payment(
             detail="Invalid UPI Transaction Reference (UTR). UTR must be exactly 12 numeric digits (e.g. 412356789012) as shown on your UPI receipt."
         )
 
-    # 3. Duplicate UTR check across all orders in database
+    # 3. Duplicate UTR check across all orders & payment submissions in database
     duplicate_order = db.query(Order).filter(Order.utr_number == clean_utr, Order.id != order.id).first()
     if duplicate_order:
         raise HTTPException(
@@ -430,25 +477,38 @@ def confirm_payment(
             detail=f"This UPI UTR reference ({clean_utr}) has already been submitted for order {duplicate_order.order_number}. Duplicate transactions are strictly prohibited."
         )
 
+    duplicate_sub = db.query(PaymentSubmission).filter(
+        PaymentSubmission.utr_number == clean_utr,
+        PaymentSubmission.order_id != order.id
+    ).first()
+    if duplicate_sub:
+        raise HTTPException(
+            status_code=400,
+            detail=f"This UPI UTR reference ({clean_utr}) has already been submitted for payment. Duplicate transactions are strictly prohibited."
+        )
+
     order.payment_method = req.payment_method
     order.utr_number = clean_utr
 
-    # Apply Coupon & discount if provided
+    # Apply Coupon & discount strictly calculated and validated on the backend
     if req.coupon_code:
         clean_coupon = req.coupon_code.strip().upper()
+        from app.models.coupon import Coupon
+        cpn = db.query(Coupon).filter(Coupon.code == clean_coupon, Coupon.is_active == True).first()
+        if not cpn:
+            raise HTTPException(status_code=400, detail="Invalid or inactive coupon code")
+        if cpn.max_uses and (cpn.used_count or 0) >= cpn.max_uses:
+            raise HTTPException(status_code=400, detail="Coupon usage limit reached")
+
+        # Backend-enforced discount calculation
+        discount_percent = float(cpn.discount_percent)
+        calculated_discount = round(float(order.total_price) * (discount_percent / 100.0), 2)
         order.coupon_code = clean_coupon
-        try:
-            from app.models.coupon import Coupon
-            cpn = db.query(Coupon).filter(Coupon.code == clean_coupon).first()
-            if cpn:
-                cpn.used_count = (cpn.used_count or 0) + 1
-        except Exception:
-            pass
-    if req.discount_amount and req.discount_amount > 0:
-        order.discount_amount = float(req.discount_amount)
-        # Apply discount to total_price and balance_amount
-        order.total_price = max(0.0, float(order.total_price) - float(req.discount_amount))
+        order.discount_amount = calculated_discount
+        order.total_price = max(0.0, float(order.total_price) - calculated_discount)
+        order.advance_amount = round(order.total_price * 0.30, 2)
         order.balance_amount = max(0.0, float(order.total_price) - float(order.advance_amount))
+        cpn.used_count = (cpn.used_count or 0) + 1
 
     # Anti-cheating verification workflow:
     # If submitted by admin, auto-verify;
@@ -464,6 +524,18 @@ def confirm_payment(
         order.payment_verified = False
         title = "Payment Submitted for Verification ⏳"
         msg = f"Payment receipt (UTR: {clean_utr}) submitted for order {order.order_number}. Mentor is verifying the transaction against the bank statement."
+
+    # Record Payment Submission
+    submission = PaymentSubmission(
+        order_id=order.id,
+        student_id=current_user.id,
+        payment_type="advance",
+        amount=order.advance_amount,
+        utr_number=clean_utr,
+        status="approved" if current_user.role == "admin" else "pending",
+        verified_at=datetime.utcnow() if current_user.role == "admin" else None
+    )
+    db.add(submission)
 
     db.commit()
     db.refresh(order)
@@ -634,6 +706,73 @@ def preview_attachment(
         "lines_shown": lines_shown,
         "content": preview_content
     }
+
+
+@router.get("/{order_id}/download/{attachment_id}")
+def download_order_attachment(
+    request: Request,
+    order_id: int,
+    attachment_id: int,
+    token: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    # Extract user from Authorization header or token query parameter
+    auth_header = request.headers.get("Authorization")
+    raw_token = None
+    if auth_header and auth_header.startswith("Bearer "):
+        raw_token = auth_header.split(" ", 1)[1]
+    elif token:
+        raw_token = token
+
+    if not raw_token:
+        raise HTTPException(status_code=401, detail="Authentication required to download project deliverables")
+
+    payload = decode_token(raw_token)
+    if not payload or not payload.get("sub"):
+        raise HTTPException(status_code=401, detail="Invalid authentication token")
+
+    user = db.query(User).filter(User.id == int(payload["sub"])).first()
+    if not user or not user.is_active:
+        raise HTTPException(status_code=401, detail="User account inactive or not found")
+
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if user.role == "student" and order.student_id != user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    # Payment check: student cannot download full deliverables until order is completed / fully paid
+    if user.role == "student" and order.status != "completed" and (order.balance_amount or 0) > 0.01:
+        raise HTTPException(
+            status_code=402,
+            detail="Milestone balance payment required before deliverables can be downloaded."
+        )
+
+    att = db.query(OrderAttachment).filter(OrderAttachment.id == attachment_id, OrderAttachment.order_id == order_id).first()
+    if not att:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+
+    from app.config import UPLOAD_DIR_DELIVERABLES, UPLOAD_DIR_REFERENCES
+    file_path = None
+    for base in [UPLOAD_DIR_DELIVERABLES, UPLOAD_DIR_REFERENCES]:
+        if os.path.exists(base):
+            for candidate in os.listdir(base):
+                if candidate.endswith(att.file_name) or (att.file_url and candidate in att.file_url):
+                    file_path = os.path.join(base, candidate)
+                    break
+            if file_path:
+                break
+
+    if not file_path or not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Deliverable file not found on server")
+
+    from fastapi.responses import FileResponse
+    return FileResponse(
+        path=file_path,
+        filename=att.file_name,
+        media_type="application/octet-stream"
+    )
 
 
 # -------------------------------------------------------------
@@ -836,10 +975,10 @@ def get_payment_qr(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    upi_id = "campusgig@okaxis"
-    merchant_name = "CampusGig"
-    adv_intent = f"upi://pay?pa={upi_id}&pn={merchant_name}&am={order.advance_amount}&cu=INR&tn=Advance-{order.order_number}"
-    bal_intent = f"upi://pay?pa={upi_id}&pn={merchant_name}&am={order.balance_amount}&cu=INR&tn=Balance-{order.order_number}"
+    upi_id = os.getenv("UPI_ID", "7020209079@ybl")
+    merchant_name = os.getenv("UPI_MERCHANT_NAME", "Dattatray Goraksh Hadke")
+    adv_intent = f"upi://pay?pa={upi_id}&pn={merchant_name}&am={order.advance_amount}&cu=INR&tn=Advance-{order.order_number}&tr=ADV{order.order_number}"
+    bal_intent = f"upi://pay?pa={upi_id}&pn={merchant_name}&am={order.balance_amount}&cu=INR&tn=Balance-{order.order_number}&tr=BAL{order.order_number}"
 
     return {
         "order_id": order.id,
@@ -876,39 +1015,129 @@ def pay_order_balance(
     if current_user.role == "student" and order.student_id != current_user.id:
         raise HTTPException(status_code=403, detail="Access denied")
 
+    # Monthly submission limit check (Max 3 submissions per month per student)
+    if current_user.role != "admin":
+        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+        user_submissions_count = db.query(PaymentSubmission).filter(
+            PaymentSubmission.student_id == current_user.id,
+            PaymentSubmission.created_at >= thirty_days_ago
+        ).count()
+        if user_submissions_count >= 3:
+            raise HTTPException(
+                status_code=429,
+                detail="Monthly payment submission limit reached (Maximum 3 submissions per month). Please contact admin for manual assistance."
+            )
+
     if req.amount <= 0:
         raise HTTPException(status_code=400, detail="Payment amount must be greater than 0")
 
-    amount_to_pay = min(float(req.amount), float(order.balance_amount))
-    order.balance_amount = round(max(0.0, float(order.balance_amount) - amount_to_pay), 2)
-    order.payment_method = req.payment_method
-    if req.utr_number:
-        order.utr_number = req.utr_number
+    # Validate UTR number (banking 12-digit standard)
+    if not req.utr_number or not req.utr_number.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="12-digit UPI transaction reference (UTR) is required to verify balance payment."
+        )
 
-    is_fully_paid = (order.balance_amount <= 0.01)
-    if is_fully_paid:
-        order.balance_amount = 0.0
-        order.status = "completed"
-        order.completed_at = datetime.utcnow()
-        create_notification(
-            db=db,
-            user_id=order.student_id,
-            title="Balance Fully Paid! 🎉",
-            message=f"Full balance settled for {order.order_number}. All uncompressed deliverables are 100% unlocked!",
-            order_id=order.id,
-            channel="whatsapp",
-            action_url=f"/order/{order.id}"
+    clean_utr = req.utr_number.strip()
+    if not re.match(r"^\d{12}$", clean_utr):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid UPI Transaction Reference (UTR). UTR must be exactly 12 numeric digits as shown on your UPI receipt."
         )
+
+    # Check for duplicate UTR across all orders & payment submissions
+    duplicate_order = db.query(Order).filter(Order.utr_number == clean_utr, Order.id != order.id).first()
+    if duplicate_order:
+        raise HTTPException(
+            status_code=400,
+            detail=f"This UPI UTR reference ({clean_utr}) has already been submitted for order {duplicate_order.order_number}. Duplicate transactions are strictly prohibited."
+        )
+
+    duplicate_sub = db.query(PaymentSubmission).filter(
+        PaymentSubmission.utr_number == clean_utr,
+        PaymentSubmission.order_id != order.id
+    ).first()
+    if duplicate_sub:
+        raise HTTPException(
+            status_code=400,
+            detail=f"This UPI UTR reference ({clean_utr}) has already been submitted for payment. Duplicate transactions are strictly prohibited."
+        )
+
+    amount_to_pay = min(float(req.amount), float(order.balance_amount))
+    order.payment_method = req.payment_method
+    order.utr_number = clean_utr
+
+    if current_user.role == "admin":
+        # Admin directly verifies and records payment
+        order.balance_amount = round(max(0.0, float(order.balance_amount) - amount_to_pay), 2)
+        is_fully_paid = (order.balance_amount <= 0.01)
+        if is_fully_paid:
+            order.balance_amount = 0.0
+            order.status = "completed"
+            order.completed_at = datetime.utcnow()
+            order.payment_verified = True
+            if not order.certificate_id:
+                order.certificate_id = f"CG-CERT-2026-{uuid.uuid4().hex[:8].upper()}"
+                order.certificate_issued_at = datetime.utcnow()
+            create_notification(
+                db=db,
+                user_id=order.student_id,
+                title="Balance Fully Paid & Verified! 🎉",
+                message=f"Full balance settled for {order.order_number}. All uncompressed deliverables are 100% unlocked!",
+                order_id=order.id,
+                channel="whatsapp",
+                action_url=f"/order/{order.id}"
+            )
+        else:
+            create_notification(
+                db=db,
+                user_id=order.student_id,
+                title=f"Partial Payment of ₹{amount_to_pay} Received! 💳",
+                message=f"Received partial payment of ₹{amount_to_pay} for {order.order_number}. Remaining balance: ₹{order.balance_amount}.",
+                order_id=order.id,
+                channel="whatsapp",
+                action_url=f"/order/{order.id}"
+            )
     else:
+        # Student submitted UTR -> mark as balance_submitted pending admin verification
+        order.status = "balance_submitted"
+        order.payment_verified = False
+        is_fully_paid = False
+
         create_notification(
             db=db,
             user_id=order.student_id,
-            title=f"Partial Payment of ₹{amount_to_pay} Received! 💳",
-            message=f"Received partial payment of ₹{amount_to_pay} for {order.order_number}. Remaining balance: ₹{order.balance_amount}.",
+            title="Balance Payment Submitted for Verification ⏳",
+            message=f"Receipt (UTR: {clean_utr}) for ₹{amount_to_pay} submitted for {order.order_number}. Mentor is verifying the transaction before unlocking deliverables.",
             order_id=order.id,
             channel="whatsapp",
             action_url=f"/order/{order.id}"
         )
+
+        # Notify admins
+        admins = db.query(User).filter(User.role == "admin").all()
+        for admin in admins:
+            create_notification(
+                db=db,
+                user_id=admin.id,
+                title="🔔 Balance Payment Submitted for Verification",
+                message=f"Order {order.order_number}: Student submitted UTR {clean_utr} for balance ₹{amount_to_pay}. Check bank statement and approve.",
+                order_id=order.id,
+                channel="in_app",
+                action_url="/admin/orders"
+            )
+
+    # Record Payment Submission
+    submission = PaymentSubmission(
+        order_id=order.id,
+        student_id=current_user.id,
+        payment_type="balance",
+        amount=amount_to_pay,
+        utr_number=clean_utr,
+        status="approved" if current_user.role == "admin" else "pending",
+        verified_at=datetime.utcnow() if current_user.role == "admin" else None
+    )
+    db.add(submission)
 
     db.commit()
     db.refresh(order)
@@ -919,18 +1148,18 @@ def pay_order_balance(
         "remaining_balance": order.balance_amount,
         "order_status": order.status,
         "is_fully_paid": is_fully_paid,
-        "message": f"Payment of ₹{amount_to_pay} recorded. Remaining balance: ₹{order.balance_amount}."
+        "message": f"Payment receipt (UTR: {clean_utr}) submitted. Status: {order.status}."
     }
 
 
 @router.post("/payments/webhook")
-async def simulate_payment_webhook(
+async def payment_webhook(
     request: Request,
     db: Session = Depends(get_db)
 ):
     """
     Production-hardened Webhook Receiver for Razorpay / Cashfree.
-    Verifies cryptographic HMAC-SHA256 signature when RAZORPAY_WEBHOOK_SECRET is set.
+    Strictly verifies cryptographic HMAC-SHA256 signature and rejects unsigned/simulated calls.
     """
     body_bytes = await request.body()
     try:
@@ -938,39 +1167,37 @@ async def simulate_payment_webhook(
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON webhook payload")
 
-    # Cryptographic HMAC-SHA256 Signature Verification (Production Security)
+    # Cryptographic HMAC-SHA256 Signature Verification
     signature = request.headers.get("X-Razorpay-Signature") or request.headers.get("x-razorpay-signature")
-    if config.RAZORPAY_WEBHOOK_SECRET:
-        if not signature:
-            raise HTTPException(status_code=400, detail="Missing X-Razorpay-Signature header")
-        expected_sig = hmac.new(
-            config.RAZORPAY_WEBHOOK_SECRET.encode("utf-8"),
-            body_bytes,
-            hashlib.sha256
-        ).hexdigest()
-        if not hmac.compare_digest(expected_sig, signature):
-            raise HTTPException(status_code=400, detail="Invalid Razorpay Webhook Signature")
+    if not config.RAZORPAY_WEBHOOK_SECRET:
+        raise HTTPException(
+            status_code=400,
+            detail="Webhook secret not configured. Unsigned webhook requests are rejected in production."
+        )
 
-    # Support both Razorpay Cloud API events and direct payload structures
-    order_number = None
-    payment_type = "advance"
-    amount = None
+    if not signature:
+        raise HTTPException(status_code=401, detail="Missing X-Razorpay-Signature header")
 
-    if "event" in payload and "payload" in payload:
-        # Standard Razorpay Event Payload
-        entity = payload.get("payload", {}).get("payment", {}).get("entity", {})
-        notes = entity.get("notes", {})
-        order_number = notes.get("order_number") or notes.get("order_no")
-        payment_type = notes.get("payment_type", "advance")
-        amount = float(entity.get("amount", 0)) / 100.0 if entity.get("amount") else None
-    else:
-        # Direct / Simulated Payload
-        order_number = payload.get("order_number")
-        payment_type = payload.get("payment_type", "advance")
-        amount = float(payload.get("amount")) if payload.get("amount") is not None else None
+    expected_sig = hmac.new(
+        config.RAZORPAY_WEBHOOK_SECRET.encode("utf-8"),
+        body_bytes,
+        hashlib.sha256
+    ).hexdigest()
+    if not hmac.compare_digest(expected_sig, signature):
+        raise HTTPException(status_code=401, detail="Invalid Razorpay Webhook Signature")
+
+    # Enforce standard signed Razorpay Cloud Event format - Reject unsigned / simulated direct payloads
+    if not ("event" in payload and "payload" in payload):
+        raise HTTPException(status_code=400, detail="Direct unverified simulation payloads are not permitted")
+
+    entity = payload.get("payload", {}).get("payment", {}).get("entity", {})
+    notes = entity.get("notes", {})
+    order_number = notes.get("order_number") or notes.get("order_no")
+    payment_type = notes.get("payment_type", "advance")
+    amount = float(entity.get("amount", 0)) / 100.0 if entity.get("amount") else None
 
     if not order_number:
-        raise HTTPException(status_code=400, detail="order_number missing from webhook payload")
+        raise HTTPException(status_code=400, detail="order_number missing from verified webhook payload")
 
     order = db.query(Order).filter(Order.order_number == order_number).first()
     if not order:
@@ -1043,6 +1270,12 @@ def verify_certificate(
     if not order:
         raise HTTPException(status_code=404, detail="Invalid certificate reference. No record found in CampusGig registry.")
 
+    issued_date = None
+    if order.certificate_issued_at:
+        issued_date = order.certificate_issued_at.strftime("%B %d, %Y")
+    elif order.completed_at:
+        issued_date = order.completed_at.strftime("%B %d, %Y")
+
     return {
         "valid": True,
         "certificate_id": order.certificate_id,
@@ -1051,9 +1284,10 @@ def verify_certificate(
         "college_name": order.student.college_name if order.student else "Accredited University",
         "project_title": order.project_title,
         "domain": order.domain or order.category_key,
-        "issue_date": order.certificate_issued_at.strftime("%B %d, %Y") if order.certificate_issued_at else "November 2026",
-        "plagiarism_score": order.plagiarism_score or 4.5,
-        "ai_score": order.ai_detection_score or 0.0,
+        "issue_date": issued_date,
+        "issued_date": issued_date,
+        "plagiarism_score": order.plagiarism_score,
+        "ai_score": order.ai_detection_score,
         "honors": "Distinction in Implementation & Architecture",
         "verified_by": "CampusGig Academic Council & Mentor Board"
     }
@@ -1082,6 +1316,8 @@ def get_presentation_deck(
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+    if current_user.role == "student" and order.student_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     tech_stack = []
     if order.ai_refined_scope:
@@ -1105,11 +1341,14 @@ def get_presentation_deck(
 @router.get("/{order_id}/export-presentation-markdown")
 def export_presentation_markdown(
     order_id: int,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+    if current_user.role == "student" and order.student_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     tech_stack = []
     if order.ai_refined_scope:
@@ -1148,6 +1387,8 @@ def get_ieee_paper(
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+    if current_user.role == "student" and order.student_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     tech_stack = []
     if order.ai_refined_scope:
@@ -1172,11 +1413,14 @@ def get_ieee_paper(
 @router.get("/{order_id}/export-ieee-tex")
 def export_ieee_tex(
     order_id: int,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+    if current_user.role == "student" and order.student_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     tech_stack = []
     if order.ai_refined_scope:
@@ -1216,6 +1460,15 @@ def deploy_to_github_and_cloud(
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+    if current_user.role == "student" and order.student_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    github_token = os.getenv("GITHUB_TOKEN")
+    if not github_token:
+        raise HTTPException(
+            status_code=400,
+            detail="Automated cloud deployment requires a verified GITHUB_TOKEN integration. No deployment was executed."
+        )
 
     slug = re.sub(r'[^a-zA-Z0-9]', '-', order.project_title.lower()).strip('-')
     if len(slug) > 30:
@@ -1353,6 +1606,8 @@ def delete_group_member(
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+    if current_user.role == "student" and order.student_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     member = db.query(OrderGroupMember).filter(OrderGroupMember.id == member_id, OrderGroupMember.order_id == order_id).first()
     if not member:
@@ -1368,19 +1623,26 @@ def pay_group_member_share(
     order_id: int,
     member_id: int,
     req: PayGroupMemberRequest,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+    if current_user.role == "student" and order.student_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
+    if not req.utr_number or not re.match(r"^\d{12}$", req.utr_number.strip()):
+        raise HTTPException(status_code=400, detail="Valid 12-digit UTR transaction reference is required")
+
+    clean_utr = req.utr_number.strip()
     member = db.query(OrderGroupMember).filter(OrderGroupMember.id == member_id, OrderGroupMember.order_id == order_id).first()
     if not member:
         raise HTTPException(status_code=404, detail="Member not found")
 
     member.is_paid = True
     member.paid_at = datetime.utcnow()
-    member.utr_number = req.utr_number or f"SPLIT_UTR_{uuid.uuid4().hex[:8].upper()}"
+    member.utr_number = clean_utr
 
     db.commit()
 
@@ -1417,6 +1679,8 @@ def get_order_uml_diagrams(
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail='Order not found')
+    if current_user.role == "student" and order.student_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     tech_stack = []
     if order.ai_refined_scope:
@@ -1454,6 +1718,8 @@ def explain_order_code_snippet(
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail='Order not found')
+    if current_user.role == "student" and order.student_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     return explain_code_snippet(
         code_snippet=req.code,
@@ -1474,6 +1740,8 @@ def get_order_readme_and_docker(
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail='Order not found')
+    if current_user.role == "student" and order.student_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     tech_stack = []
     if order.ai_refined_scope:
@@ -1512,6 +1780,8 @@ def rewrite_turnitin_text(
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail='Order not found')
+    if current_user.role == "student" and order.student_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     return rewrite_academic_turnitin(text=req.text)
 
@@ -1534,6 +1804,8 @@ def interact_order_whatsapp_bot(
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail='Order not found')
+    if current_user.role == "student" and order.student_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     order_info = {
         'order_number': order.order_number,

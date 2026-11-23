@@ -5,7 +5,8 @@ type Status = Order['status'];
 
 const statusConfig: Record<Status, { label: string; bg: string; text: string }> = {
   pending_payment: { label: 'Pending Payment', bg: 'bg-yellow-100', text: 'text-yellow-800' },
-  payment_submitted: { label: 'Payment Under Verification', bg: 'bg-amber-100', text: 'text-amber-800' },
+  payment_submitted: { label: 'Advance Under Verification', bg: 'bg-amber-100', text: 'text-amber-800' },
+  balance_submitted: { label: 'Balance Under Verification', bg: 'bg-indigo-100', text: 'text-indigo-800' },
   advance_paid: { label: 'Advance Paid', bg: 'bg-blue-100', text: 'text-blue-800' },
   in_progress: { label: 'In Progress', bg: 'bg-indigo-100', text: 'text-indigo-800' },
   ready_for_review: { label: 'Ready for Review', bg: 'bg-purple-100', text: 'text-purple-800' },

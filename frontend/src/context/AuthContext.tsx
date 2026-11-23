@@ -63,11 +63,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const register = async (data: RegisterData) => {
     const response = await api.post('/auth/register', data);
-    const { access_token, user: userData } = response.data;
-    localStorage.setItem('token', access_token);
-    localStorage.setItem('user', JSON.stringify(userData));
-    setToken(access_token);
-    setUser(userData);
+    const token = response.data?.access_token;
+    const userData = response.data?.user || (response.data?.id ? response.data : null);
+    if (token) {
+      localStorage.setItem('token', token);
+      setToken(token);
+    }
+    if (userData) {
+      localStorage.setItem('user', JSON.stringify(userData));
+      setUser(userData);
+    }
   };
 
   return (

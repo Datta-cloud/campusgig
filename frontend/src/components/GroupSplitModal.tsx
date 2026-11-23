@@ -110,11 +110,18 @@ export const GroupSplitModal: React.FC<GroupSplitModalProps> = ({
     }
   };
 
-  const handleSimulatePayShare = async (memberId: number) => {
+  const handleRecordMemberShare = async (memberId: number) => {
+    const utr = window.prompt("Enter 12-digit transaction UTR for this teammate's payment:");
+    if (!utr) return;
+    const cleanUtr = utr.trim();
+    if (!/^\d{12}$/.test(cleanUtr)) {
+      alert("UTR must be exactly 12 numeric digits.");
+      return;
+    }
     setPayingMemberId(memberId);
     try {
       await api.post(`/orders/${orderId}/group-split/pay/${memberId}`, {
-        utr_number: `SPLIT_UTR_${Math.floor(10000000 + Math.random() * 90000000)}`
+        utr_number: cleanUtr
       });
       fetchSplit();
       onSuccess();
@@ -310,12 +317,12 @@ export const GroupSplitModal: React.FC<GroupSplitModalProps> = ({
                   ) : (
                     <button
                       type="button"
-                      onClick={() => handleSimulatePayShare(m.id)}
+                      onClick={() => handleRecordMemberShare(m.id)}
                       disabled={payingMemberId === m.id}
                       className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg transition-all"
-                      title="Confirm / Record Share Payment"
+                      title="Record Verified Share Payment"
                     >
-                      {payingMemberId === m.id ? 'Recording...' : 'Mark Paid (₹' + m.share_amount + ')'}
+                      {payingMemberId === m.id ? 'Recording...' : 'Record UTR (₹' + m.share_amount + ')'}
                     </button>
                   )}
 
@@ -339,7 +346,7 @@ export const GroupSplitModal: React.FC<GroupSplitModalProps> = ({
           <button
             type="button"
             onClick={() => {
-              navigator.clipboard.writeText(`Hey team! Please pay your ₹${splitData?.per_member_share || ''} share for our capstone project (${orderNumber}): http://127.0.0.1:5173/order/${orderId}`);
+              navigator.clipboard.writeText(`Hey team! Please pay your ₹${splitData?.per_member_share || ''} share for our capstone project (${orderNumber}): ${window.location.origin}/order/${orderId}`);
               setCopiedLink(true);
               setTimeout(() => setCopiedLink(false), 2000);
             }}

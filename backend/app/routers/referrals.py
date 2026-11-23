@@ -46,9 +46,12 @@ def get_my_wallet(
     elif total_referred >= 2:
         tier = "Silver Ambassador 🥈"
 
+    import os
+    frontend_url = os.getenv("FRONTEND_URL", "https://campusgig-ai.vercel.app").rstrip("/")
+
     return {
         "referral_code": current_user.referral_code,
-        "referral_link": f"http://127.0.0.1:5173/register?ref={current_user.referral_code}",
+        "referral_link": f"{frontend_url}/register?ref={current_user.referral_code}",
         "wallet_balance": current_user.wallet_balance or 0.0,
         "total_referred": total_referred,
         "ambassador_tier": tier,

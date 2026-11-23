@@ -5,7 +5,7 @@ import {
   BookOpen, Clock, CheckCircle2, ChevronRight, ChevronLeft, ArrowRight,
   ShieldCheck, AlertCircle, RefreshCw, QrCode, CreditCard, Send, Check, Tag, Zap, Copy
 } from 'lucide-react';
-import api from '../services/api';
+import api, { getErrorMessage } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 const COLLEGE_DOMAINS = [
@@ -153,7 +153,17 @@ export const OrderWizard: React.FC = () => {
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
   const [couponDiscountPercent, setCouponDiscountPercent] = useState<number>(0);
   const [couponMsg, setCouponMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [upiTrRef] = useState(() => 'CG' + Date.now().toString().slice(-9));
   const [copiedUpi, setCopiedUpi] = useState(false);
+  const [quota, setQuota] = useState<{ monthly_limit: number; used: number; remaining: number } | null>(null);
+
+  useEffect(() => {
+    if (step === 4) {
+      api.get('/orders/user/payment-quota')
+        .then(res => setQuota(res.data))
+        .catch(() => {});
+    }
+  }, [step]);
 
   const handleCopyUpiId = () => {
     navigator.clipboard.writeText('7020209079@ybl');
@@ -294,6 +304,7 @@ export const OrderWizard: React.FC = () => {
 
   // Step 4: Submit Order and Pay 30% Advance
   const handleConfirmOrder = async () => {
+    if (loading) return;
     const cleanUtr = utrNumber.trim();
     if (cleanUtr.length !== 12) {
       alert('Please enter a valid 12-digit UPI UTR / Transaction Reference number from your payment receipt.');
@@ -329,7 +340,7 @@ export const OrderWizard: React.FC = () => {
 
       setStep(5); // Success step
     } catch (err: any) {
-      alert(err.response?.data?.detail || 'Failed to place order. Please try again.');
+      alert(getErrorMessage(err, 'Failed to place order. Please check transaction details and try again.'));
     } finally {
       setLoading(false);
     }
@@ -1075,7 +1086,7 @@ export const OrderWizard: React.FC = () => {
               <div className="flex flex-col items-center justify-center p-5 bg-white rounded-2xl border border-dashed border-slate-300">
                 <div className="p-2 bg-white rounded-xl border border-slate-200 shadow-sm">
                   <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(`upi://pay?pa=7020209079@ybl&pn=Dattatray%20Goraksh%20Hadke&am=${effectiveAdvance}&cu=INR&tn=${encodeURIComponent('CampusGig Advance ' + (projectTitle.slice(0, 15) || 'Order'))}`)}`}
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(`upi://pay?pa=7020209079@ybl&pn=Dattatray%20Goraksh%20Hadke&am=${effectiveAdvance}&cu=INR&tn=${encodeURIComponent('CampusGig Advance ' + (projectTitle.slice(0, 15) || 'Order'))}&tr=${upiTrRef}`)}`}
                     alt="Direct UPI QR"
                     className="w-36 h-36 object-contain rounded-lg"
                   />
@@ -1100,7 +1111,7 @@ export const OrderWizard: React.FC = () => {
                   </div>
                   <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
                     <a
-                      href={`upi://pay?pa=7020209079@ybl&pn=Dattatray%20Goraksh%20Hadke&am=${effectiveAdvance}&cu=INR&tn=${encodeURIComponent('CampusGig Advance ' + (projectTitle.slice(0, 15) || 'Order'))}`}
+                      href={`upi://pay?pa=7020209079@ybl&pn=Dattatray%20Goraksh%20Hadke&am=${effectiveAdvance}&cu=INR&tn=${encodeURIComponent('CampusGig Advance ' + (projectTitle.slice(0, 15) || 'Order'))}&tr=${upiTrRef}`}
                       className="btn-primary text-xs px-3.5 py-1.5 flex items-center gap-1.5 font-bold shadow-sm bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl"
                     >
                       <Zap className="w-3.5 h-3.5" />
@@ -1114,17 +1125,19 @@ export const OrderWizard: React.FC = () => {
                       {copiedUpi ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                       {copiedUpi ? 'Copied UPI ID' : 'Copy UPI ID'}
                     </button>
-                    <a
-                      href="https://razorpay.me/@dattatraygorakshhadke"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn-secondary text-xs px-3 py-1.5 font-bold rounded-xl"
-                    >
-                      Razorpay Link ↗
-                    </a>
                   </div>
                 </div>
               </div>
+
+              {/* Monthly Submissions Quota Tracker */}
+              {quota && (
+                <div className="flex items-center justify-between text-xs px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200">
+                  <span className="text-slate-600 font-medium">Monthly Submissions:</span>
+                  <span className={`font-bold ${quota.remaining > 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                    {quota.used} / {quota.monthly_limit} used ({quota.remaining} remaining this month)
+                  </span>
+                </div>
+              )}
 
               {/* UTR Input */}
               <div>
@@ -1142,11 +1155,17 @@ export const OrderWizard: React.FC = () => {
                   onChange={e => setUtrNumber(e.target.value.replace(/\D/g, '').slice(0, 12))}
                   placeholder="e.g., 412356789012"
                   maxLength={12}
+                  disabled={Boolean(quota && quota.remaining <= 0)}
                   className="input-field font-mono text-sm tracking-wider"
                 />
                 <p className="text-[11px] text-slate-500 mt-1">
                   Copy 12-digit UTR from your UPI payment success screen (GPay, PhonePe, Paytm).
                 </p>
+                {quota && quota.remaining <= 0 && (
+                  <p className="text-[11px] text-red-600 font-bold mt-1.5">
+                    ⚠️ Monthly submission limit reached (3/3 used). Please contact admin for manual verification.
+                  </p>
+                )}
                 <div className="mt-2 p-2 rounded-xl bg-slate-50 border border-slate-200 flex items-start gap-1.5 text-[10px] text-slate-600">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
                   <span>
@@ -1159,7 +1178,7 @@ export const OrderWizard: React.FC = () => {
             <button
               type="button"
               onClick={handleConfirmOrder}
-              disabled={loading || !utrNumber.trim()}
+              disabled={loading || !utrNumber.trim() || Boolean(quota && quota.remaining <= 0)}
               className="w-full btn-primary py-4 text-base font-bold shadow-lg shadow-brand-500/25 flex items-center justify-center gap-2"
             >
               {loading ? (

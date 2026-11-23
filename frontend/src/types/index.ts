@@ -48,7 +48,7 @@ export interface Order {
   total_price: number;
   advance_amount: number;
   balance_amount: number;
-  status: 'pending_payment' | 'payment_submitted' | 'advance_paid' | 'in_progress' | 'ready_for_review' | 'completed' | 'cancelled' | 'revision_requested';
+  status: 'pending_payment' | 'payment_submitted' | 'balance_submitted' | 'advance_paid' | 'in_progress' | 'ready_for_review' | 'completed' | 'cancelled' | 'revision_requested';
   advance_paid_at?: string;
   completed_at?: string;
   payment_method?: string;
@@ -56,6 +56,13 @@ export interface Order {
   payment_verified?: boolean;
   coupon_code?: string;
   discount_amount?: number;
+  pending_payment_submission?: {
+    id: number;
+    amount: number;
+    utr_number: string;
+    payment_type: 'advance' | 'balance';
+    created_at?: string;
+  };
   admin_notes?: string;
   student_notes?: string;
   revision_count?: number;

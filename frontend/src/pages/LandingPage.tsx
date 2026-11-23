@@ -5,12 +5,12 @@ import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 
 const services = [
-  { icon: '🤖', title: 'Machine Learning', desc: 'CNN, NLP, Regression, Classification', price: '₹2,499+' },
-  { icon: '🧠', title: 'Generative AI', desc: 'LLMs, RAG, Chatbots, Fine-tuning', price: '₹2,999+' },
-  { icon: '🕵️', title: 'Agentic AI', desc: 'Multi-agent systems, AutoGen, LangGraph', price: '₹3,499+' },
-  { icon: '💻', title: 'Web Development', desc: 'React, Next.js, Full-stack apps', price: '₹1,999+' },
-  { icon: '📱', title: 'Android Dev', desc: 'Kotlin, Jetpack Compose, Firebase', price: '₹2,499+' },
-  { icon: '📚', title: 'School Projects', desc: 'Class 1-10 assignments & reports', price: '₹299+' },
+  { icon: '🤖', title: 'Machine Learning', desc: 'CNN, NLP, Regression, Classification', price: '₹1,500+' },
+  { icon: '🧠', title: 'Generative AI', desc: 'LLMs, RAG, Chatbots, Fine-tuning', price: '₹2,000+' },
+  { icon: '🕵️', title: 'Agentic AI', desc: 'Multi-agent systems, AutoGen, LangGraph', price: '₹2,500+' },
+  { icon: '💻', title: 'Web Development', desc: 'React, Next.js, Full-stack apps', price: '₹1,200+' },
+  { icon: '📱', title: 'Android Dev', desc: 'Kotlin, Jetpack Compose, Firebase', price: '₹2,000+' },
+  { icon: '📚', title: 'School Projects', desc: 'Class 1-10 assignments & reports', price: '₹400+' },
 ];
 
 type Tab = 'student' | 'admin';
@@ -33,57 +33,33 @@ const LandingPage: React.FC = () => {
     college_name: '', college_branch: '', school_class: '', phone: '',
   });
 
-  // Pre-warm backend cloud server & autofill credentials
+  // Pre-warm backend cloud server
   useEffect(() => {
     // Ping health endpoint to instantly wake Render backend if sleeping
     api.get('/health').catch(() => {});
   }, []);
 
   useEffect(() => {
-    if (mode === 'register') {
-      // Clear all fields for new registration so no demo credentials appear
-      setForm({
-        email: '', password: '', full_name: '', username: '',
-        student_type: 'college', college_name: '', college_branch: '', school_class: '', phone: '',
-      });
-      return;
-    }
-    if (tab === 'admin') {
-      const savedAdminUser = localStorage.getItem('cg_saved_admin_user') || 'admin';
-      const savedAdminPass = localStorage.getItem('cg_saved_admin_pass') || 'Admin@CampusGig2026';
-      setForm(f => ({ ...f, email: savedAdminUser, password: savedAdminPass }));
-    } else {
-      const savedStudentUser = localStorage.getItem('cg_saved_student_user') || 'ananya_cse';
-      const savedStudentPass = localStorage.getItem('cg_saved_student_pass') || 'Student@2026';
-      setForm(f => ({ ...f, email: savedStudentUser, password: savedStudentPass }));
-    }
+    const savedUser = tab === 'admin'
+      ? localStorage.getItem('cg_remembered_admin_user') || ''
+      : localStorage.getItem('cg_remembered_user') || '';
+
+    setForm({
+      email: mode === 'login' ? savedUser : '',
+      password: '',
+      full_name: '',
+      username: '',
+      student_type: 'college',
+      college_name: '',
+      college_branch: '',
+      school_class: '',
+      phone: '',
+    });
+    setError('');
   }, [tab, showModal, mode]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setForm(f => ({ ...f, [e.target.name]: e.target.value }));
-  };
-
-  const handleQuickFill = (user: string, pass: string) => {
-    setForm(f => ({ ...f, email: user, password: pass }));
-  };
-
-  const handleDirectLogin = async (user: string, pass: string) => {
-    setForm(f => ({ ...f, email: user, password: pass }));
-    setLoading(true);
-    setError('');
-    try {
-      await login(user, pass);
-      setShowModal(false);
-      if (tab === 'admin') {
-        navigate('/admin');
-      } else {
-        navigate('/dashboard');
-      }
-    } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Server is waking up. Please click again in a few seconds.');
-    } finally {
-      setLoading(false);
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -93,11 +69,9 @@ const LandingPage: React.FC = () => {
     try {
       if (rememberMe) {
         if (tab === 'admin') {
-          localStorage.setItem('cg_saved_admin_user', form.email);
-          localStorage.setItem('cg_saved_admin_pass', form.password);
-        } else if (mode === 'login') {
-          localStorage.setItem('cg_saved_student_user', form.email);
-          localStorage.setItem('cg_saved_student_pass', form.password);
+          localStorage.setItem('cg_remembered_admin_user', form.email);
+        } else {
+          localStorage.setItem('cg_remembered_user', form.email);
         }
       }
 
@@ -120,10 +94,6 @@ const LandingPage: React.FC = () => {
           phone: form.phone || undefined,
         });
 
-        // Save newly registered user to localStorage so their OWN credentials are remembered next time
-        localStorage.setItem('cg_saved_student_user', form.username || form.email);
-        localStorage.setItem('cg_saved_student_pass', form.password);
-
         // Prompt Google Password Manager via Credential Management API if supported
         if (typeof window !== 'undefined' && (window as any).PasswordCredential && navigator.credentials) {
           try {
@@ -140,7 +110,7 @@ const LandingPage: React.FC = () => {
         navigate('/dashboard');
       }
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Server is waking up. Please click again in a few seconds.');
+      setError(err?.response?.data?.detail || 'Login failed. Please check credentials or try again.');
     } finally {
       setLoading(false);
     }
@@ -364,62 +334,6 @@ const LandingPage: React.FC = () => {
                   </>
                 ) : (
                   <>
-                    {/* 1-Click Quick Fill & Direct Login Helper - STUDENT */}
-                    {tab === 'student' && mode === 'login' && (
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          disabled={loading}
-                          onClick={() => handleQuickFill('ananya_cse', 'Student@2026')}
-                          className="flex-1 text-xs py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl font-bold border border-blue-200 flex items-center justify-center gap-1.5 transition-all disabled:opacity-50"
-                        >
-                          ⚡ Auto-Fill Ananya
-                        </button>
-                        <button
-                          type="button"
-                          disabled={loading}
-                          onClick={() => handleDirectLogin('ananya_cse', 'Student@2026')}
-                          className="flex-1 text-xs py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm disabled:opacity-50"
-                        >
-                          {loading ? (
-                            <>
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Logging in...
-                            </>
-                          ) : (
-                            '🚀 1-Click Direct Login'
-                          )}
-                        </button>
-                      </div>
-                    )}
-
-                    {/* 1-Click Quick Fill & Direct Login Helper - ADMIN */}
-                    {tab === 'admin' && (
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          disabled={loading}
-                          onClick={() => handleQuickFill('admin', 'Admin@CampusGig2026')}
-                          className="flex-1 text-xs py-2 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-xl font-bold border border-purple-200 flex items-center justify-center gap-1.5 transition-all disabled:opacity-50"
-                        >
-                          ⚡ Auto-Fill Admin
-                        </button>
-                        <button
-                          type="button"
-                          disabled={loading}
-                          onClick={() => handleDirectLogin('admin', 'Admin@CampusGig2026')}
-                          className="flex-1 text-xs py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm disabled:opacity-50"
-                        >
-                          {loading ? (
-                            <>
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Logging in...
-                            </>
-                          ) : (
-                            '🚀 1-Click Direct Login'
-                          )}
-                        </button>
-                      </div>
-                    )}
-
                     <div>
                       <label className="block text-xs font-bold text-gray-700 mb-1">
                         {tab === 'admin' ? 'Admin Username' : 'Username or Email'}

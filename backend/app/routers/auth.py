@@ -61,7 +61,7 @@ class UserResponse(BaseModel):
         from_attributes = True
 
 
-@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/register", status_code=status.HTTP_201_CREATED)
 def register(req: RegisterRequest, db: Session = Depends(get_db)):
     # Check email uniqueness
     if db.query(User).filter(User.email == req.email).first():
@@ -97,14 +97,14 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
         referral_code=my_referral_code,
         wallet_balance=0.0,
         is_active=True,
-        is_online=False
+        is_online=True
     )
 
-    # Process referral reward if code was provided
+    # Process referral reward if code was provided (prevent self-referral)
     if req.referral_code:
         ref_code_clean = req.referral_code.strip().upper()
         referrer = db.query(User).filter(User.referral_code == ref_code_clean).first()
-        if referrer:
+        if referrer and referrer.email.lower() != req.email.lower() and referrer.username.lower() != req.username.lower():
             user.referred_by = referrer.referral_code
             referrer.wallet_balance = (referrer.wallet_balance or 0.0) + 250.0
 
@@ -121,7 +121,25 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
     db.add(user)
     db.commit()
     db.refresh(user)
-    return user
+
+    token = create_access_token({"sub": str(user.id), "role": user.role})
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "username": user.username,
+            "full_name": user.full_name,
+            "role": user.role,
+            "student_type": user.student_type,
+            "college_name": user.college_name,
+            "college_branch": user.college_branch,
+            "school_class": user.school_class,
+            "phone": user.phone,
+            "is_online": user.is_online
+        }
+    }
 
 
 @router.post("/login")

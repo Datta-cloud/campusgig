@@ -4,7 +4,7 @@ import {
   ArrowLeft, MessageCircle, Download, CheckCircle2, Clock, ShieldCheck,
   AlertCircle, FileText, QrCode, RefreshCw, Sparkles, Layers, Check,
   Upload, X, Package, Presentation, GraduationCap, Video, Eye, Award, Zap,
-  Play, GitBranch, Users, Gift, Share2, Rocket, Network, FileCode, MessageSquare, ShieldAlert
+  Play, GitBranch, Users, Gift, Share2, Rocket, Network, FileCode, MessageSquare, ShieldAlert, Lock
 } from 'lucide-react';
 import api, { getErrorMessage } from '../services/api';
 import { Order } from '../types';
@@ -121,6 +121,24 @@ export const OrderDetail: React.FC = () => {
     setPreviewAttachmentId(attachmentId);
     setPreviewFileName(fileName);
     setPreviewModalOpen(true);
+  };
+
+  const handleDownloadDeliverable = async (attId: number, fileName: string) => {
+    try {
+      const res = await api.get(`/orders/${order?.id}/download/${attId}`, {
+        responseType: 'blob'
+      });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', fileName);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(getErrorMessage(err, 'Failed to download deliverable. Please complete balance payment to unlock.'));
+    }
   };
 
   const handleAcceptRevision = async () => {
@@ -723,15 +741,24 @@ export const OrderDetail: React.FC = () => {
                           <Eye className="w-3.5 h-3.5 text-brand-600" /> Inspect Preview
                         </button>
 
-                        <a
-                          href={att.file_url}
-                          download={att.file_name}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="flex-1 btn-primary py-2 text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm"
-                        >
-                          <Download className="w-3.5 h-3.5" /> Download
-                        </a>
+                        {order.status === 'completed' || user?.role === 'admin' ? (
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadDeliverable(att.id, att.file_name)}
+                            className="flex-1 btn-primary py-2 text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm"
+                          >
+                            <Download className="w-3.5 h-3.5" /> Download
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setPaymentModalOpen(true)}
+                            className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 text-xs font-bold flex items-center justify-center gap-1.5 border border-slate-200 rounded-xl"
+                            title="Complete 70% balance payment to download clean deliverable package"
+                          >
+                            <Lock className="w-3.5 h-3.5 text-slate-500" /> Unlock Clean Code
+                          </button>
+                        )}
                       </div>
                     </div>
                   );

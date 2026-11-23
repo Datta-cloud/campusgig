@@ -6,11 +6,13 @@ from app.models.attachment import OrderAttachment
 from app.models.course import Course, CourseEnrollment
 from app.models.notification import Notification
 from app.models.coupon import Coupon
+from app.models.payment_submission import PaymentSubmission
 
 __all__ = [
     "User",
     "PricingConfig",
     "Coupon",
+    "PaymentSubmission",
     "Order",
     "OrderGroupMember",
     "ChatMessage",

@@ -743,13 +743,13 @@ def generate_ieee_latex(paper_data: dict) -> str:
     ]
 
     for sec in paper_data.get("sections", []):
-        latex_lines.append(f"\section{{{sec.get('title', '')}}}")
+        latex_lines.append(rf"\section{{{sec.get('title', '')}}}")
         latex_lines.append(sec.get("content", ""))
         latex_lines.append("")
 
     latex_lines.append(r"\begin{thebibliography}{00}")
     for idx, ref in enumerate(paper_data.get("references", []), 1):
-        latex_lines.append(f"\bibitem{{b{idx}}} {ref}")
+        latex_lines.append(rf"\bibitem{{b{idx}}} {ref}")
     latex_lines.append(r"\end{thebibliography}")
     latex_lines.append(r"\end{document}")
 
@@ -1122,12 +1122,16 @@ def handle_whatsapp_bot_command(command: str, order_info: dict) -> dict:
     """
     Process interactive 2-way WhatsApp commands like STATUS, REPORT, MEET, BALANCE.
     """
+    import os
+    frontend_url = os.getenv("FRONTEND_URL", "https://campusgig-ai.vercel.app").rstrip("/")
+    backend_url = os.getenv("BACKEND_URL", "https://campusgig-api-zl9k.onrender.com").rstrip("/")
+
     cmd = (command or "").strip().upper()
     order_num = order_info.get("order_number", "CG-2026-00001")
     title = order_info.get("project_title", "Autonomous Drone Detection using YOLOv9")
     status = order_info.get("status", "ready_for_review")
     balance = order_info.get("balance_amount", 2240.0)
-    meet_url = order_info.get("walkthrough_meeting_url", "https://meet.jit.si/CampusGig-Walkthrough-CG-2026-00001")
+    meet_url = order_info.get("walkthrough_meeting_url", f"https://meet.jit.si/CampusGig-Walkthrough-{order_num}")
 
     if cmd == "STATUS":
         reply = (
@@ -1137,7 +1141,7 @@ def handle_whatsapp_bot_command(command: str, order_info: dict) -> dict:
             f"• *Current Status:* READY FOR REVIEW 🚀\n"
             f"• *Milestone:* Phase 2 Source Code & Phase 3 IEEE Report uploaded.\n"
             f"• *Remaining Balance:* ₹{balance}\n\n"
-            f"Inspect live previews on portal: http://127.0.0.1:5173/order/1"
+            f"Inspect live previews on portal: {frontend_url}/order/1"
         )
     elif cmd == "REPORT":
         reply = (
@@ -1145,9 +1149,9 @@ def handle_whatsapp_bot_command(command: str, order_info: dict) -> dict:
             f"• *Report:* IEEE_Research_Paper_Comprehensive_Report.pdf\n"
             f"• *Turnitin Score:* 3.8% Similarity (Verified < 10%)\n"
             f"• *AI Score:* 0.0%\n\n"
-            f"📥 *Direct Download Link:*\n"
-            f"http://127.0.0.1:8001/uploads/deliverables/CG-2026-00007_1795221625_Datta_Resume_Interview_Script.pdf\n\n"
-            f"Open on WhatsApp and download directly to your mobile!"
+            f"📥 *Direct Portal Access:*\n"
+            f"{frontend_url}/order/1\n\n"
+            f"Log in to inspect verified previews and defense materials!"
         )
     elif cmd == "MEET":
         reply = (
@@ -1164,8 +1168,8 @@ def handle_whatsapp_bot_command(command: str, order_info: dict) -> dict:
             f"• *Advance Paid:* ₹{order_info.get('advance_amount', 960.0)}\n"
             f"• *Remaining 70% Balance:* ₹{balance}\n\n"
             f"📲 *Direct UPI Pay Link:*\n"
-            f"upi://pay?pa=campusgig@okaxis&pn=CampusGig&am={balance}&cu=INR&tn=BALANCE-{order_num}\n\n"
-            f"Or pay in portal: http://127.0.0.1:5173/order/1"
+            f"upi://pay?pa=7020209079@ybl&pn=CampusGig&am={balance}&cu=INR&tn=BALANCE-{order_num}&tr=BAL-{order_num}\n\n"
+            f"Or pay in portal: {frontend_url}/order/1"
         )
     else:
         reply = (

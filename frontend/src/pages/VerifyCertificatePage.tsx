@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Award, ShieldCheck, CheckCircle2, ArrowLeft, ExternalLink, Calendar, Building, BookOpen, AlertCircle } from 'lucide-react';
-import api from '../services/api';
+import api, { getErrorMessage } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 export const VerifyCertificatePage: React.FC = () => {
@@ -14,17 +14,10 @@ export const VerifyCertificatePage: React.FC = () => {
     if (certId) {
       setLoading(true);
       setError(null);
-      // Fetch public verification record
-      fetch(`http://127.0.0.1:8001/api/verify-certificate/${certId}`)
-        .then(async res => {
-          if (!res.ok) {
-            const body = await res.json().catch(() => ({}));
-            throw new Error(body.detail || 'Certificate not found in registry');
-          }
-          return res.json();
-        })
-        .then(result => setData(result))
-        .catch(err => setError(err.message))
+      // Fetch public verification record via configured production API
+      api.get(`/verify-certificate/${certId}`)
+        .then(res => setData(res.data))
+        .catch(err => setError(getErrorMessage(err, 'Certificate not found in registry')))
         .finally(() => setLoading(false));
     }
   }, [certId]);
@@ -91,7 +84,7 @@ export const VerifyCertificatePage: React.FC = () => {
 
               <div className="text-left sm:text-right shrink-0">
                 <span className="text-[10px] uppercase text-emerald-200 block font-bold">Verification Date</span>
-                <span className="text-xs font-bold text-white">November 2026</span>
+                <span className="text-xs font-bold text-white">{data.issued_date || 'Verified'}</span>
               </div>
             </div>
 
@@ -116,7 +109,7 @@ export const VerifyCertificatePage: React.FC = () => {
                   </span>
                   <h4 className="font-mono font-bold text-sm text-brand-600">{data.order_number}</h4>
                   <p className="text-xs text-slate-500 flex sm:justify-end items-center gap-1.5 mt-1">
-                    <Calendar className="w-3.5 h-3.5 text-slate-400" /> {data.issued_date}
+                    <Calendar className="w-3.5 h-3.5 text-slate-400" /> {data.issued_date || 'Verified'}
                   </p>
                 </div>
 
@@ -134,12 +127,16 @@ export const VerifyCertificatePage: React.FC = () => {
                   <span className="bg-white border border-slate-200 text-slate-700 text-xs font-semibold px-2.5 py-1 rounded-lg">
                     Domain: {data.domain}
                   </span>
-                  <span className="bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold px-2.5 py-1 rounded-lg flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Plagiarism: {data.plagiarism_score}% (Turnitin Verified)
-                  </span>
-                  <span className="bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-semibold px-2.5 py-1 rounded-lg">
-                    AI Detection: {data.ai_score}%
-                  </span>
+                  {data.plagiarism_score !== null && data.plagiarism_score !== undefined && (
+                    <span className="bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold px-2.5 py-1 rounded-lg flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Plagiarism: {data.plagiarism_score}% (Turnitin Verified)
+                    </span>
+                  )}
+                  {data.ai_score !== null && data.ai_score !== undefined && (
+                    <span className="bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-semibold px-2.5 py-1 rounded-lg">
+                      AI Detection: {data.ai_score}%
+                    </span>
+                  )}
                 </div>
               </div>
 

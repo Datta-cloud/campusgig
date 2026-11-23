@@ -33,8 +33,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const [utrNumber, setUtrNumber] = useState('');
   const [utrError, setUtrError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [simulatingWebhook, setSimulatingWebhook] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [quota, setQuota] = useState<{ monthly_limit: number; used: number; remaining: number } | null>(null);
 
   // Coupon state
   const [couponInput, setCouponInput] = useState('');
@@ -51,6 +51,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       setAppliedCoupon(null);
       setCouponDiscountPercent(0);
       setCouponMsg(null);
+      api.get('/orders/user/payment-quota')
+        .then(res => setQuota(res.data))
+        .catch(() => {});
     }
   }, [isOpen, amount]);
 
@@ -66,10 +69,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
   const payeeVpa = '7020209079@ybl';
   const payeeName = 'Dattatray Goraksh Hadke';
-  const razorpayLink = 'https://razorpay.me/@dattatraygorakshhadke';
+  const [upiTrRef] = useState(() => `CG${(orderNumber || 'ORD').replace(/[^a-zA-Z0-9]/g, '')}${Date.now().toString().slice(-6)}`);
 
-  // Direct NPCI UPI Intent URL for GPay, PhonePe, Paytm, BHIM with dynamic discounted amount & note
-  const upiIntentUrl = `upi://pay?pa=${encodeURIComponent(payeeVpa)}&pn=${encodeURIComponent(payeeName)}&am=${currentPayAmount}&cu=INR&tn=${encodeURIComponent('Order ' + orderNumber)}`;
+  // Direct NPCI UPI Intent URL for GPay, PhonePe, Paytm, BHIM with dynamic discounted amount, note & unique tr
+  const upiIntentUrl = `upi://pay?pa=${encodeURIComponent(payeeVpa)}&pn=${encodeURIComponent(payeeName)}&am=${currentPayAmount}&cu=INR&tn=${encodeURIComponent('Order ' + orderNumber)}&tr=${upiTrRef}`;
 
   // Generate dynamic QR image url containing the direct UPI intent payload
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(upiIntentUrl)}`;
@@ -158,25 +161,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       alert(getErrorMessage(err, 'Payment submission failed'));
     } finally {
       setSubmitting(false);
-    }
-  };
-
-  const handleSimulateWebhook = async () => {
-    setSimulatingWebhook(true);
-    try {
-      await api.post('/orders/payments/webhook', {
-        order_number: orderNumber,
-        payment_type: paymentType,
-        amount: currentPayAmount,
-        transaction_id: `RZP_LIVE_${Math.floor(1000000000 + Math.random() * 9000000000)}`,
-      });
-      alert(`⚡ Automated Razorpay Webhook Callback Executed! Payment of ₹${currentPayAmount} confirmed.`);
-      onSuccess();
-      onClose();
-    } catch (err: any) {
-      alert(getErrorMessage(err, 'Webhook simulation failed'));
-    } finally {
-      setSimulatingWebhook(false);
     }
   };
 
@@ -424,14 +408,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                   <Zap className="w-3.5 h-3.5" />
                   Pay via UPI App
                 </a>
-                <a
-                  href={razorpayLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn-secondary text-xs px-3 py-1.5 flex items-center gap-1.5 font-bold"
-                >
-                  Razorpay Link ↗
-                </a>
                 <button
                   type="button"
                   onClick={handleCopyUpi}
@@ -444,29 +420,13 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             </div>
           </div>
 
-          {/* Instant 1-Click Automated Gateway Simulation (Admin Only) */}
-          {user?.role === 'admin' && (
-            <div className="p-4 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-2xl border border-purple-200 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-purple-900 flex items-center gap-1.5">
-                  <Zap className="w-4 h-4 text-purple-600 fill-purple-600" /> Admin Fast Approval Webhook:
-                </span>
-                <span className="text-[10px] font-bold text-purple-600 uppercase tracking-wider">
-                  Admin Only
-                </span>
-              </div>
-              <p className="text-[11px] text-purple-700 leading-relaxed">
-                Simulate a live Razorpay/Cashfree webhook callback to auto-approve this transaction of ₹{currentPayAmount} immediately.
-              </p>
-              <button
-                type="button"
-                onClick={handleSimulateWebhook}
-                disabled={simulatingWebhook}
-                className="w-full btn-accent text-xs py-2.5 font-bold flex items-center justify-center gap-2 shadow-sm"
-              >
-                {simulatingWebhook ? 'Verifying Webhook...' : `Simulate Instant ₹${currentPayAmount} Webhook Approval`}
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+          {/* Monthly Submissions Quota Tracker */}
+          {quota && (
+            <div className="flex items-center justify-between text-xs px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200">
+              <span className="text-slate-600 font-medium">Monthly Submissions:</span>
+              <span className={`font-bold ${quota.remaining > 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                {quota.used} / {quota.monthly_limit} used ({quota.remaining} remaining this month)
+              </span>
             </div>
           )}
 
@@ -488,17 +448,23 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 onChange={handleUtrChange}
                 placeholder="e.g. 412356789012"
                 maxLength={12}
+                disabled={Boolean(quota && quota.remaining <= 0)}
                 className="flex-1 input-field text-xs font-mono tracking-wider"
                 required
               />
               <button
                 type="submit"
-                disabled={submitting || utrNumber.length !== 12}
+                disabled={submitting || utrNumber.length !== 12 || Boolean(quota && quota.remaining <= 0)}
                 className="btn-primary text-xs px-4 py-2 font-bold shrink-0 shadow-sm disabled:opacity-50"
               >
                 {submitting ? 'Submitting...' : `Submit ₹${currentPayAmount}`}
               </button>
             </div>
+            {quota && quota.remaining <= 0 && (
+              <p className="text-[11px] text-red-600 font-bold">
+                ⚠️ Monthly limit reached (3 submissions used). Please contact admin on WhatsApp for manual verification.
+              </p>
+            )}
 
             {utrError && (
               <p className="text-[11px] text-red-600 font-semibold flex items-center gap-1">

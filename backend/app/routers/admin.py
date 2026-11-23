@@ -13,6 +13,7 @@ from app.models.order import Order
 from app.models.user import User
 from app.models.pricing import PricingConfig
 from app.models.coupon import Coupon
+from app.models.payment_submission import PaymentSubmission
 from app.models.attachment import OrderAttachment
 from app.services.auth_service import require_admin
 from app.config import UPLOAD_DIR_DELIVERABLES, MAX_FILE_SIZE_MB
@@ -409,7 +410,7 @@ async def upload_deliverable(
     with open(file_path, "wb") as f:
         shutil.copyfileobj(file.file, f)
 
-    file_url = f"http://127.0.0.1:8001/uploads/deliverables/{safe_filename}"
+    file_url = f"/uploads/deliverables/{safe_filename}"
     display_type = phase_name if phase_name else file_type
 
     attachment = OrderAttachment(
@@ -520,11 +521,52 @@ def verify_order_payment(
         raise HTTPException(status_code=404, detail="Order not found")
 
     from app.services.notification_service import create_notification
+    import uuid
+
+    pending_sub = db.query(PaymentSubmission).filter(
+        PaymentSubmission.order_id == order.id,
+        PaymentSubmission.status == "pending"
+    ).order_by(PaymentSubmission.created_at.desc()).first()
+
+    pay_type = pending_sub.payment_type if pending_sub else ("balance" if order.status == "balance_submitted" else "advance")
+    sub_amount = float(pending_sub.amount) if pending_sub else (float(order.balance_amount) if pay_type == "balance" else float(order.advance_amount))
+    sub_utr = pending_sub.utr_number if pending_sub else (order.utr_number or "DIRECT_UPI")
 
     if req.action == "approve":
-        order.status = "advance_paid"
-        order.payment_verified = True
-        order.advance_paid_at = datetime.utcnow()
+        if pay_type == "balance":
+            order.balance_amount = max(0.0, round(float(order.balance_amount) - sub_amount, 2))
+            is_fully_settled = (order.balance_amount <= 0.01)
+
+            if is_fully_settled:
+                order.balance_amount = 0.0
+                order.status = "completed"
+                order.completed_at = datetime.utcnow()
+                order.payment_verified = True
+                if not order.certificate_id:
+                    order.certificate_id = f"CG-CERT-2026-{uuid.uuid4().hex[:8].upper()}"
+                    order.certificate_issued_at = datetime.utcnow()
+                title = "Balance Payment Verified & Deliverables Unlocked! 🎉"
+                msg = f"Your final balance payment of ₹{sub_amount} (UTR: {sub_utr}) for {order.order_number} has been verified. All deliverables are 100% unlocked!"
+            else:
+                # Partial balance payment approved: remaining balance still due!
+                has_deliverables = any(att.file_type == "deliverable" for att in (order.attachments or []))
+                order.status = "ready_for_review" if has_deliverables else "in_progress"
+                order.payment_verified = False
+                title = f"Partial Payment of ₹{sub_amount} Verified! 💳"
+                msg = f"Your partial payment of ₹{sub_amount} (UTR: {sub_utr}) for {order.order_number} has been verified. Remaining balance: ₹{order.balance_amount}. You can pay the rest anytime."
+        else:
+            order.status = "advance_paid"
+            order.payment_verified = True
+            order.advance_paid_at = datetime.utcnow()
+            title = "Advance Payment Verified & Development Started! 🚀"
+            msg = f"Your advance payment of ₹{sub_amount} (UTR: {sub_utr}) for {order.order_number} has been verified in our bank account. Development is in progress!"
+
+        if pending_sub:
+            pending_sub.status = "approved"
+            pending_sub.verified_at = datetime.utcnow()
+            if req.notes:
+                pending_sub.admin_notes = req.notes
+
         if req.notes:
             order.admin_notes = req.notes
         db.commit()
@@ -533,21 +575,30 @@ def verify_order_payment(
         create_notification(
             db=db,
             user_id=order.student_id,
-            title="Payment Verified & Development Started! 🚀",
-            message=f"Your advance payment (UTR: {order.utr_number}) for {order.order_number} has been verified in our bank account. Development is in progress!",
+            title=title,
+            message=msg,
             order_id=order.id,
             channel="whatsapp",
             action_url=f"/order/{order.id}"
         )
         return {
             "success": True,
-            "message": f"Payment for order {order.order_number} verified and approved.",
+            "message": f"Payment of ₹{sub_amount} for order {order.order_number} verified and approved.",
             "status": order.status,
-            "payment_verified": True
+            "balance_amount": order.balance_amount,
+            "payment_verified": order.payment_verified
         }
     elif req.action == "reject":
-        bad_utr = order.utr_number
-        order.status = "pending_payment"
+        if pending_sub:
+            pending_sub.status = "rejected"
+            if req.notes:
+                pending_sub.admin_notes = req.notes
+
+        if pay_type == "balance":
+            has_deliverables = any(att.file_type == "deliverable" for att in (order.attachments or []))
+            order.status = "ready_for_review" if has_deliverables else "in_progress"
+        else:
+            order.status = "pending_payment"
         order.payment_verified = False
         order.utr_number = None
         if req.notes:
@@ -559,14 +610,14 @@ def verify_order_payment(
             db=db,
             user_id=order.student_id,
             title="⚠️ Payment Verification Rejected",
-            message=f"Transaction UTR {bad_utr} could not be matched with our bank statement. Reason: {req.notes or 'Payment not received in bank account'}. Please re-submit a valid 12-digit UPI reference.",
+            message=f"Transaction UTR {sub_utr} could not be verified in our bank statement. Reason: {req.notes or 'Payment not received in bank account'}. Please re-submit a valid 12-digit UPI reference.",
             order_id=order.id,
             channel="whatsapp",
             action_url=f"/order/{order.id}"
         )
         return {
             "success": True,
-            "message": f"Payment for order {order.order_number} rejected. Order returned to pending payment.",
+            "message": f"Payment for order {order.order_number} rejected.",
             "status": order.status,
             "payment_verified": False
         }

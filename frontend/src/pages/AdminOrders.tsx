@@ -149,7 +149,7 @@ export const AdminOrders: React.FC = () => {
     }
     try {
       await api.post(`/admin/orders/${orderId}/verify-payment`, { action, notes: reason });
-      alert(action === 'approve' ? '✅ Payment verified! Order status updated to Advance Paid.' : '❌ Payment rejected. Order reset to Pending Payment.');
+      alert(action === 'approve' ? '✅ Payment verified and credited successfully!' : '❌ Payment rejected. Order reset.');
       fetchOrders();
     } catch (err: any) {
       alert(getErrorMessage(err, 'Failed to update payment status'));
@@ -274,14 +274,23 @@ export const AdminOrders: React.FC = () => {
                     </td>
                     <td className="py-3.5 px-4">
                       <StatusBadge status={o.status} />
-                      {o.utr_number && (
+                      {o.pending_payment_submission ? (
+                        <div className="mt-1 space-y-0.5">
+                          <span className="text-[10px] font-mono text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200 block w-fit font-bold">
+                            UTR: {o.pending_payment_submission.utr_number}
+                          </span>
+                          <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 block w-fit">
+                            Pay Submitted: ₹{o.pending_payment_submission.amount} ({o.pending_payment_submission.payment_type})
+                          </span>
+                        </div>
+                      ) : o.utr_number ? (
                         <span className="text-[10px] font-mono text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200 block mt-1 w-fit">
                           UTR: {o.utr_number}
                         </span>
-                      )}
+                      ) : null}
                     </td>
                     <td className="py-3.5 px-4 text-right space-x-1.5">
-                      {o.status === 'payment_submitted' && (
+                      {(o.status === 'payment_submitted' || o.status === 'balance_submitted') && (
                         <span className="inline-flex items-center gap-1 mr-1">
                           <button
                             type="button"
@@ -289,7 +298,7 @@ export const AdminOrders: React.FC = () => {
                             className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] px-2.5 py-1 rounded-xl font-bold inline-flex items-center gap-1 shadow-sm"
                             title="Verify Bank Statement & Approve"
                           >
-                            <CheckCircle2 className="w-3 h-3" /> Approve UTR
+                            <CheckCircle2 className="w-3 h-3" /> Approve ₹{o.pending_payment_submission?.amount || (o.status === 'balance_submitted' ? o.balance_amount : o.advance_amount)}
                           </button>
                           <button
                             type="button"

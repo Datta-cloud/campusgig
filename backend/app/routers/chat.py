@@ -163,6 +163,12 @@ async def upload_chat_attachment(
     except (ValueError, TypeError):
         raise HTTPException(status_code=400, detail="Invalid order_id format")
 
+    # Access control: verify student ownership
+    if current_user.role == "student":
+        order = db.query(Order).filter(Order.id == resolved_order_id, Order.student_id == current_user.id).first()
+        if not order:
+            raise HTTPException(status_code=403, detail="Access denied")
+
     # Verify file size (up to MAX_FILE_SIZE_MB)
     file.file.seek(0, 2)
     file_size = file.file.tell()
@@ -179,7 +185,7 @@ async def upload_chat_attachment(
     with open(file_path, "wb") as f:
         shutil.copyfileobj(file.file, f)
 
-    file_url = f"http://127.0.0.1:8001/uploads/references/{safe_filename}"
+    file_url = f"/uploads/references/{safe_filename}"
 
     content_type = (file.content_type or "").lower()
     filename_lower = file.filename.lower()
@@ -243,6 +249,17 @@ async def websocket_chat(
             uid = payload.get("sub")
             if uid:
                 authenticated_user = db.query(User).filter(User.id == int(uid)).first()
+
+    # Enforce access control on websocket rooms
+    if authenticated_user and authenticated_user.role == "student":
+        try:
+            oid = int(order_id)
+            user_order = db.query(Order).filter(Order.id == oid, Order.student_id == authenticated_user.id).first()
+            if not user_order:
+                await websocket.close(code=1008)
+                return
+        except ValueError:
+            pass
 
     await manager.connect(websocket, order_id, user_id)
 

@@ -8,10 +8,10 @@ from fastapi.staticfiles import StaticFiles
 
 from sqlalchemy import text
 from app.database import engine, SessionLocal
-from app.models import User, PricingConfig, Order, ChatMessage, OrderAttachment, Course, CourseEnrollment
+from app.models import User, PricingConfig, Order, ChatMessage, OrderAttachment, Course, CourseEnrollment, PaymentSubmission
 from app.database import Base
 from app.services.auth_service import hash_password
-from app.config import UPLOAD_DIR, CORS_ALLOWED_ORIGINS, DATABASE_URL
+from app.config import UPLOAD_DIR, UPLOAD_DIR_REFERENCES, UPLOAD_DIR_THUMBNAILS, CORS_ALLOWED_ORIGINS, DATABASE_URL
 from app.services.storage_service import get_storage_provider_name
 
 # Rate Limiter & SlowAPI Setup
@@ -121,12 +121,13 @@ def seed_database():
         # Seed admin user
         admin_user = db.query(User).filter(User.username == "admin").first()
         if not admin_user:
+            admin_initial_pw = os.getenv("ADMIN_PASSWORD", "Admin@CampusGig2026")
             admin_user = User(
                 email="admin@campusgig.com",
                 username="admin",
                 full_name="CampusGig Admin",
                 role="admin",
-                hashed_password=hash_password("Admin@CampusGig2026"),
+                hashed_password=hash_password(admin_initial_pw),
                 is_active=True,
                 is_online=False
             )
@@ -179,17 +180,66 @@ async def lifespan(app: FastAPI):
         Base.metadata.create_all(bind=engine)
         print("✓ Database tables created")
 
-        # Safe automatic schema migrations for newly added columns
+        # Safe automatic schema migrations for newly added columns (Postgres & SQLite compatible)
         with engine.connect() as conn:
-            migration_sqls = [
-                "ALTER TABLE orders ADD COLUMN walkthrough_count INTEGER DEFAULT 0",
-                "ALTER TABLE orders ADD COLUMN coupon_code VARCHAR",
-                "ALTER TABLE orders ADD COLUMN discount_amount FLOAT DEFAULT 0.0",
-                "ALTER TABLE orders ADD COLUMN payment_verified BOOLEAN DEFAULT 0",
+            columns_to_add = [
+                ("orders", "walkthrough_count", "INTEGER DEFAULT 0"),
+                ("orders", "walkthrough_scheduled_at", "TIMESTAMP"),
+                ("orders", "walkthrough_meeting_url", "VARCHAR"),
+                ("orders", "coupon_code", "VARCHAR"),
+                ("orders", "discount_amount", "FLOAT DEFAULT 0.0"),
+                ("orders", "payment_verified", "BOOLEAN DEFAULT FALSE"),
+                ("orders", "certificate_id", "VARCHAR"),
+                ("orders", "certificate_issued_at", "TIMESTAMP"),
+                ("orders", "github_repo_url", "VARCHAR"),
+                ("orders", "deployed_url", "VARCHAR"),
+                ("orders", "deployed_at", "TIMESTAMP"),
+                ("orders", "plagiarism_score", "FLOAT"),
+                ("orders", "ai_detection_score", "FLOAT"),
+                ("orders", "plagiarism_report_url", "VARCHAR"),
+                ("order_group_members", "qr_token", "VARCHAR"),
+                ("users", "wallet_balance", "FLOAT DEFAULT 0.0"),
             ]
-            for sql_stmt in migration_sqls:
+            for table, col, col_def in columns_to_add:
                 try:
-                    conn.execute(text(sql_stmt))
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {col_def}"))
+                    conn.commit()
+                except Exception:
+                    pass
+
+            # Ensure payment_submissions table exists (Postgres & SQLite)
+            try:
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS payment_submissions (
+                        id SERIAL PRIMARY KEY,
+                        order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+                        student_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                        payment_type VARCHAR NOT NULL,
+                        amount FLOAT NOT NULL,
+                        utr_number VARCHAR NOT NULL,
+                        status VARCHAR DEFAULT 'pending',
+                        admin_notes TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        verified_at TIMESTAMP
+                    )
+                """))
+                conn.commit()
+            except Exception:
+                try:
+                    conn.execute(text("""
+                        CREATE TABLE IF NOT EXISTS payment_submissions (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            order_id INTEGER NOT NULL,
+                            student_id INTEGER NOT NULL,
+                            payment_type VARCHAR NOT NULL,
+                            amount REAL NOT NULL,
+                            utr_number VARCHAR NOT NULL,
+                            status VARCHAR DEFAULT 'pending',
+                            admin_notes TEXT,
+                            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            verified_at DATETIME
+                        )
+                    """))
                     conn.commit()
                 except Exception:
                     pass
@@ -275,33 +325,43 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# CORS (Dynamic production environment support)
+# CORS (Strict production environment support)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ALLOWED_ORIGINS,
-    allow_origin_regex=r"https://.*\.vercel\.app|http://localhost:.*|http://127\.0\.0\.1:.*",
+    allow_origin_regex=r"^https://(campusgig-ai\.vercel\.app|campusgig(-[a-z0-9]+)?-datta-clouds-projects\.vercel\.app|frontend-delta-ashy-82\.vercel\.app)$|^http://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Static file serving for uploads
+# Secure static file serving: Only references and thumbnails are public. Deliverables require authenticated access.
 import os
 from datetime import datetime
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+os.makedirs(UPLOAD_DIR_REFERENCES, exist_ok=True)
+os.makedirs(UPLOAD_DIR_THUMBNAILS, exist_ok=True)
+app.mount("/uploads/references", StaticFiles(directory=UPLOAD_DIR_REFERENCES), name="references")
+app.mount("/uploads/thumbnails", StaticFiles(directory=UPLOAD_DIR_THUMBNAILS), name="thumbnails")
 
-# Health Check & Anti-Sleep Ping Endpoint
+# Health Check & Monitoring Endpoints (Pings database to verify live connectivity)
+@app.get("/health", tags=["System"])
 @app.get("/api/health", tags=["System"])
 def health_check():
     """
-    Fast, non-blocking public health check endpoint for UptimeRobot, Render, and cloud monitoring.
-    Returns in < 5ms to guarantee immediate deployment readiness and zero cold starts.
+    Active health check endpoint verifying database connectivity and service readiness.
     """
+    db_status = "connected"
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except Exception as e:
+        db_status = f"disconnected: {str(e)}"
+
     return {
-        "status": "healthy",
+        "status": "healthy" if db_status == "connected" else "degraded",
         "service": "CampusGig Backend API",
         "version": "2.4.0",
+        "database": db_status,
         "database_type": "PostgreSQL" if not DATABASE_URL.startswith("sqlite") else "SQLite",
         "storage_provider": get_storage_provider_name(),
         "timestamp": datetime.utcnow().isoformat() + "Z"
@@ -326,6 +386,13 @@ def public_verify_cert(cert_id: str):
         order = db.query(Order).filter(Order.certificate_id == cert_id).first()
         if not order:
             raise HTTPException(status_code=404, detail="Certificate not found in CampusGig Registry")
+
+        issued_date = None
+        if order.certificate_issued_at:
+            issued_date = order.certificate_issued_at.strftime("%B %d, %Y")
+        elif order.completed_at:
+            issued_date = order.completed_at.strftime("%B %d, %Y")
+
         return {
             "valid": True,
             "certificate_id": order.certificate_id,
@@ -334,9 +401,9 @@ def public_verify_cert(cert_id: str):
             "college_name": order.student.college_name if order.student else "Accredited University",
             "project_title": order.project_title,
             "domain": order.domain or order.category_key,
-            "issued_date": order.certificate_issued_at.strftime("%B %d, %Y") if order.certificate_issued_at else "November 2026",
-            "plagiarism_score": order.plagiarism_score or 4.2,
-            "ai_score": order.ai_detection_score or 0.0,
+            "issued_date": issued_date,
+            "plagiarism_score": order.plagiarism_score,
+            "ai_score": order.ai_detection_score,
             "honors": "Distinction in Implementation & Architecture",
             "verified_by": "CampusGig Academic Council & Mentor Board"
         }
