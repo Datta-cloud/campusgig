@@ -64,7 +64,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const currentPayAmount = Math.max(1, basePayAmount - discountAmount);
   const remainingAfterPayment = Math.max(0, balanceAmount - currentPayAmount);
 
-  const payeeVpa = 'razorpay.me/@dattatraygorakshhadke';
+  const payeeVpa = '7020209079@ybl';
   const payeeName = 'Dattatray Goraksh Hadke';
   const razorpayLink = 'https://razorpay.me/@dattatraygorakshhadke';
 
@@ -115,7 +115,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   };
 
   const handleCopyUpi = () => {
-    navigator.clipboard.writeText(razorpayLink);
+    navigator.clipboard.writeText(payeeVpa);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };

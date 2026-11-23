@@ -153,6 +153,13 @@ export const OrderWizard: React.FC = () => {
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
   const [couponDiscountPercent, setCouponDiscountPercent] = useState<number>(0);
   const [couponMsg, setCouponMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [copiedUpi, setCopiedUpi] = useState(false);
+
+  const handleCopyUpiId = () => {
+    navigator.clipboard.writeText('7020209079@ybl');
+    setCopiedUpi(true);
+    setTimeout(() => setCopiedUpi(false), 2000);
+  };
 
   const effectiveTotal = appliedCoupon ? Math.round(pricing.total * (1 - couponDiscountPercent / 100)) : pricing.total;
   const effectiveAdvance = appliedCoupon ? Math.round(pricing.advance * (1 - couponDiscountPercent / 100)) : pricing.advance;
@@ -1068,7 +1075,7 @@ export const OrderWizard: React.FC = () => {
               <div className="flex flex-col items-center justify-center p-5 bg-white rounded-2xl border border-dashed border-slate-300">
                 <div className="p-2 bg-white rounded-xl border border-slate-200 shadow-sm">
                   <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(`upi://pay?pa=razorpay.me/@dattatraygorakshhadke&pn=Dattatray%20Goraksh%20Hadke&am=${effectiveAdvance}&cu=INR&tn=${encodeURIComponent('CampusGig Advance ' + projectTitle.slice(0, 20))}`)}`}
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(`upi://pay?pa=7020209079@ybl&pn=Dattatray%20Goraksh%20Hadke&am=${effectiveAdvance}&cu=INR&tn=${encodeURIComponent('CampusGig Advance ' + (projectTitle.slice(0, 15) || 'Order'))}`)}`}
                     alt="Direct UPI QR"
                     className="w-36 h-36 object-contain rounded-lg"
                   />
@@ -1080,17 +1087,33 @@ export const OrderWizard: React.FC = () => {
                   <span className="text-xs font-black text-slate-900 block">
                     DATTATRAY GORAKSH HADKE
                   </span>
-                  <span className="text-[11px] font-mono text-slate-500 block">
-                    razorpay.me/@dattatraygorakshhadke
-                  </span>
+                  <div className="inline-flex items-center gap-1.5 bg-slate-100 px-3 py-1 rounded-xl border border-slate-200">
+                    <span className="text-xs font-mono font-bold text-slate-800">7020209079@ybl</span>
+                    <button
+                      type="button"
+                      onClick={handleCopyUpiId}
+                      className="text-slate-500 hover:text-blue-600 transition-colors p-0.5"
+                      title="Copy UPI ID"
+                    >
+                      {copiedUpi ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
                   <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
                     <a
-                      href={`upi://pay?pa=razorpay.me/@dattatraygorakshhadke&pn=Dattatray%20Goraksh%20Hadke&am=${effectiveAdvance}&cu=INR&tn=${encodeURIComponent('CampusGig Advance Payment')}`}
+                      href={`upi://pay?pa=7020209079@ybl&pn=Dattatray%20Goraksh%20Hadke&am=${effectiveAdvance}&cu=INR&tn=${encodeURIComponent('CampusGig Advance ' + (projectTitle.slice(0, 15) || 'Order'))}`}
                       className="btn-primary text-xs px-3.5 py-1.5 flex items-center gap-1.5 font-bold shadow-sm bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl"
                     >
                       <Zap className="w-3.5 h-3.5" />
                       Pay via UPI App
                     </a>
+                    <button
+                      type="button"
+                      onClick={handleCopyUpiId}
+                      className="btn-secondary text-xs px-3 py-1.5 font-bold rounded-xl flex items-center gap-1"
+                    >
+                      {copiedUpi ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copiedUpi ? 'Copied UPI ID' : 'Copy UPI ID'}
+                    </button>
                     <a
                       href="https://razorpay.me/@dattatraygorakshhadke"
                       target="_blank"
