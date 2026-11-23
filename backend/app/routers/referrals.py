@@ -25,8 +25,6 @@ def get_my_wallet(
     if not current_user.referral_code:
         prefix = (current_user.username or "STUDENT").upper().replace("_", "")[:6]
         current_user.referral_code = f"{prefix}2026"
-        if not current_user.wallet_balance:
-            current_user.wallet_balance = 300.0  # Welcome signup reward
         db.commit()
         db.refresh(current_user)
 

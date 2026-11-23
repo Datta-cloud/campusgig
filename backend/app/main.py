@@ -180,6 +180,13 @@ async def lifespan(app: FastAPI):
                 except Exception:
                     pass
 
+            # Reset default artificial wallet balances to 0.0 (no default 200 or 300)
+            try:
+                conn.execute(text("UPDATE users SET wallet_balance = 0.0 WHERE wallet_balance IN (200.0, 300.0) AND (referred_by IS NULL OR referred_by = '')"))
+                conn.commit()
+            except Exception:
+                pass
+
         seed_database()
     except Exception as e:
         print(f"⚠️ Database startup check: {e}")

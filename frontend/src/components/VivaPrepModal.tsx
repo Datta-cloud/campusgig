@@ -36,13 +36,19 @@ export const VivaPrepModal: React.FC<VivaPrepModalProps> = ({
   const [voiceModeActive, setVoiceModeActive] = useState(false);
   const [isSpeakingExaminer, setIsSpeakingExaminer] = useState(false);
   const [isListeningStudent, setIsListeningStudent] = useState(false);
+  const [speechInterim, setSpeechInterim] = useState('');
+  const [micError, setMicError] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
+  const isListeningRef = useRef<boolean>(false);
+  const baseAnswerRef = useRef<string>('');
 
   useEffect(() => {
     if (isOpen) {
       setLoading(true);
       setEvalResult(null);
       setStudentAnswer('');
+      setSpeechInterim('');
+      setMicError(null);
       setShowModelAnswer(false);
       api.get(`/orders/${orderId}/viva-questions`)
         .then(res => setQuestions(res.data.questions || []))
@@ -50,11 +56,14 @@ export const VivaPrepModal: React.FC<VivaPrepModalProps> = ({
         .finally(() => setLoading(false));
     } else {
       // Stop speech if modal closes
+      isListeningRef.current = false;
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
       }
       if (recognitionRef.current) {
-        recognitionRef.current.stop();
+        try {
+          recognitionRef.current.abort();
+        } catch (_) {}
       }
     }
   }, [isOpen, orderId]);
@@ -90,53 +99,115 @@ export const VivaPrepModal: React.FC<VivaPrepModalProps> = ({
   };
 
   // Speech-To-Text (Student Microphone)
-  const toggleStudentMic = () => {
+  const toggleStudentMic = async () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      alert('Speech Recognition is not supported by your browser. Please use Google Chrome or Edge.');
+      alert('Speech Recognition is not supported by your current browser. Please use Google Chrome, Microsoft Edge, or a browser with Web Speech API support.');
       return;
     }
 
     if (isListeningStudent) {
+      isListeningRef.current = false;
       if (recognitionRef.current) {
-        recognitionRef.current.stop();
+        try {
+          recognitionRef.current.stop();
+        } catch (_) {}
       }
       setIsListeningStudent(false);
+      setSpeechInterim('');
       return;
     }
 
+    setMicError(null);
+
+    // Request microphone access explicitly to trigger permission prompt if not yet allowed
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach(track => track.stop());
+      } catch (err: any) {
+        setMicError('Microphone permission blocked. Please allow microphone permissions in your browser URL bar.');
+        alert('Microphone access was denied. Please click the lock or camera icon in your browser URL bar and allow Microphone.');
+        return;
+      }
+    }
+
     try {
+      if (recognitionRef.current) {
+        try { recognitionRef.current.abort(); } catch (_) {}
+      }
+
       const recognition = new SpeechRecognition();
       recognition.continuous = true;
       recognition.interimResults = true;
-      recognition.lang = 'en-US';
+      recognition.lang = (navigator.language && navigator.language.startsWith('en')) ? navigator.language : 'en-IN';
+      recognition.maxAlternatives = 1;
+
+      baseAnswerRef.current = studentAnswer.trim();
+      isListeningRef.current = true;
 
       recognition.onstart = () => {
         setIsListeningStudent(true);
+        setMicError(null);
       };
 
       recognition.onresult = (event: any) => {
-        let transcript = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          transcript += event.results[i][0].transcript;
+        let finalTranscript = '';
+        let interimTranscript = '';
+
+        for (let i = 0; i < event.results.length; i++) {
+          const item = event.results[i];
+          if (item.isFinal) {
+            finalTranscript += item[0].transcript + ' ';
+          } else {
+            interimTranscript += item[0].transcript;
+          }
         }
-        setStudentAnswer(prev => prev ? `${prev} ${transcript}` : transcript);
+
+        const spokenTotal = (finalTranscript + interimTranscript).trim();
+        if (interimTranscript) {
+          setSpeechInterim(interimTranscript);
+        } else {
+          setSpeechInterim('');
+        }
+
+        if (spokenTotal) {
+          const prefix = baseAnswerRef.current ? `${baseAnswerRef.current} ` : '';
+          setStudentAnswer(`${prefix}${spokenTotal}`);
+        }
       };
 
       recognition.onerror = (event: any) => {
         console.warn('Speech recognition error:', event.error);
-        setIsListeningStudent(false);
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          setIsListeningStudent(false);
+          isListeningRef.current = false;
+          setMicError('Microphone permission blocked. Please allow microphone in browser settings.');
+          alert('Microphone access denied. Please click the site settings/lock icon in your browser address bar and enable Microphone.');
+        } else if (event.error === 'network') {
+          setMicError('Speech recognition network error. Please verify your internet connection.');
+        }
       };
 
       recognition.onend = () => {
+        if (isListeningRef.current) {
+          // Restart smoothly if user hasn't explicitly stopped listening
+          try {
+            recognition.start();
+            return;
+          } catch (_) {}
+        }
         setIsListeningStudent(false);
+        setSpeechInterim('');
       };
 
       recognitionRef.current = recognition;
       recognition.start();
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      console.error('Speech recognition start failed:', e);
       setIsListeningStudent(false);
+      isListeningRef.current = false;
+      setMicError('Failed to access microphone. Please check permissions.');
     }
   };
 
@@ -324,18 +395,39 @@ export const VivaPrepModal: React.FC<VivaPrepModalProps> = ({
                   </button>
                 </div>
 
+                {isListeningStudent && (
+                  <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center justify-between">
+                    <span className="flex items-center gap-2 font-bold">
+                      <span className="w-2.5 h-2.5 rounded-full bg-rose-600 animate-ping shrink-0" />
+                      Microphone Listening... Speak your technical explanation
+                    </span>
+                    {speechInterim && (
+                      <span className="font-mono text-[11px] text-rose-700 truncate max-w-[200px] italic">
+                        "{speechInterim}"
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {micError && (
+                  <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>{micError}</span>
+                  </div>
+                )}
+
                 <div className="relative">
                   <textarea
                     rows={4}
                     value={studentAnswer}
                     onChange={e => setStudentAnswer(e.target.value)}
-                    placeholder="Click 'Speak Answer' to defend with your microphone or type your technical response here..."
+                    placeholder="Click 'Speak Answer' to speak with your microphone or type your technical response here..."
                     className="w-full p-3.5 rounded-2xl border border-slate-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent text-xs leading-relaxed text-slate-800 outline-none"
                   />
                   {isListeningStudent && (
-                    <div className="absolute bottom-3 right-3 flex items-center gap-1.5 bg-rose-50 border border-rose-200 text-rose-600 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                      <span className="w-2 h-2 rounded-full bg-rose-600 animate-ping" />
-                      Recording Spoken Defense...
+                    <div className="absolute bottom-3 right-3 flex items-center gap-1.5 bg-rose-100/80 border border-rose-200 text-rose-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-pulse" />
+                      Live Transcribing...
                     </div>
                   )}
                 </div>

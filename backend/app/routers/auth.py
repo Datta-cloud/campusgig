@@ -89,7 +89,7 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
         college_branch=req.college_branch,
         hashed_password=hash_password(req.password),
         referral_code=my_referral_code,
-        wallet_balance=200.0,  # Welcome bonus
+        wallet_balance=0.0,
         is_active=True,
         is_online=False
     )
