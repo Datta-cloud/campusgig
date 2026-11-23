@@ -21,10 +21,16 @@ def get_my_wallet(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    # Ensure user has a referral code
+    # Ensure user has a unique referral code
     if not current_user.referral_code:
-        prefix = (current_user.username or "STUDENT").upper().replace("_", "")[:6]
-        current_user.referral_code = f"{prefix}2026"
+        import random, string
+        prefix = "".join(c for c in (current_user.username or "STUDENT") if c.isalnum()).upper()[:4] or "CAMP"
+        rand_suffix = "".join(random.choices(string.ascii_uppercase + string.digits, k=4))
+        ref_code = f"{prefix}{rand_suffix}"
+        while db.query(User).filter(User.referral_code == ref_code).first():
+            rand_suffix = "".join(random.choices(string.ascii_uppercase + string.digits, k=4))
+            ref_code = f"{prefix}{rand_suffix}"
+        current_user.referral_code = ref_code
         db.commit()
         db.refresh(current_user)
 

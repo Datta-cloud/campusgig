@@ -73,9 +73,15 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
     if req.student_type not in ("school", "college"):
         raise HTTPException(status_code=400, detail="student_type must be 'school' or 'college'")
 
-    # Generate personal referral code
-    clean_username = "".join(c for c in req.username if c.isalnum()).upper()[:6]
-    my_referral_code = f"{clean_username}2026"
+    # Generate guaranteed unique personal referral code
+    import random, string
+    clean_username = "".join(c for c in req.username if c.isalnum()).upper()[:4] or "CAMP"
+    rand_suffix = "".join(random.choices(string.ascii_uppercase + string.digits, k=4))
+    my_referral_code = f"{clean_username}{rand_suffix}"
+    # In the rare event of collision, retry
+    while db.query(User).filter(User.referral_code == my_referral_code).first():
+        rand_suffix = "".join(random.choices(string.ascii_uppercase + string.digits, k=4))
+        my_referral_code = f"{clean_username}{rand_suffix}"
 
     user = User(
         email=req.email,
