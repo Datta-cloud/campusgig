@@ -104,8 +104,24 @@ class VivaEvaluateRequest(BaseModel):
 
 def generate_order_number(db: Session) -> str:
     year = datetime.utcnow().year
-    count = db.query(Order).count() + 1
-    return f"CG-{year}-{count:05d}"
+    prefix = f"CG-{year}-"
+    # Find the maximum existing sequence number for this year to prevent any collision
+    existing_orders = db.query(Order.order_number).filter(Order.order_number.like(f"{prefix}%")).all()
+    max_seq = 0
+    for (num,) in existing_orders:
+        if num and num.startswith(prefix):
+            try:
+                seq = int(num[len(prefix):])
+                if seq > max_seq:
+                    max_seq = seq
+            except (ValueError, TypeError):
+                continue
+    candidate_seq = max_seq + 1
+    candidate = f"{prefix}{candidate_seq:05d}"
+    while db.query(Order).filter(Order.order_number == candidate).first():
+        candidate_seq += 1
+        candidate = f"{prefix}{candidate_seq:05d}"
+    return candidate
 
 
 def _serialize_attachment(a, order_id: int, advance_confirmed: bool, is_midterm_unlocked: bool, is_fully_settled: bool) -> dict:
@@ -532,7 +548,7 @@ def confirm_payment(
     if current_user.role == "student" and order.student_id != current_user.id:
         raise HTTPException(status_code=403, detail="Access denied")
 
-    # Monthly submission limit check (Max 3 submissions per month per student)
+    # Monthly submission limit check (Max 25 submissions per month per student for security)
     if current_user.role != "admin":
         try:
             thirty_days_ago = datetime.utcnow() - timedelta(days=30)
@@ -540,10 +556,10 @@ def confirm_payment(
                 PaymentSubmission.student_id == current_user.id,
                 PaymentSubmission.created_at >= thirty_days_ago
             ).count()
-            if user_submissions_count >= 3:
+            if user_submissions_count >= 25:
                 raise HTTPException(
                     status_code=429,
-                    detail="Monthly payment submission limit reached (Maximum 3 submissions per month). Please contact admin for manual assistance."
+                    detail="Monthly payment submission limit reached (Maximum 25 submissions per month). Please contact admin for manual assistance."
                 )
         except HTTPException:
             raise
@@ -1193,7 +1209,7 @@ def pay_order_balance(
     if current_user.role == "student" and order.student_id != current_user.id:
         raise HTTPException(status_code=403, detail="Access denied")
 
-    # Monthly submission limit check (Max 3 submissions per month per student)
+    # Monthly submission limit check (Max 25 submissions per month per student for security)
     if current_user.role != "admin":
         try:
             thirty_days_ago = datetime.utcnow() - timedelta(days=30)
@@ -1201,10 +1217,10 @@ def pay_order_balance(
                 PaymentSubmission.student_id == current_user.id,
                 PaymentSubmission.created_at >= thirty_days_ago
             ).count()
-            if user_submissions_count >= 3:
+            if user_submissions_count >= 25:
                 raise HTTPException(
                     status_code=429,
-                    detail="Monthly payment submission limit reached (Maximum 3 submissions per month). Please contact admin for manual assistance."
+                    detail="Monthly payment submission limit reached (Maximum 25 submissions per month). Please contact admin for manual assistance."
                 )
         except HTTPException:
             raise

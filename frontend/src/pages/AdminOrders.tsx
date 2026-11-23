@@ -165,6 +165,138 @@ export const AdminOrders: React.FC = () => {
     return matchesStatus && matchesSearch;
   });
 
+  const activeOrders = filteredOrders.filter(o => o.status !== 'completed' && o.status !== 'cancelled');
+  const completedOrders = filteredOrders.filter(o => o.status === 'completed');
+
+  const renderOrderRow = (o: Order) => (
+    <tr key={o.id} className="hover:bg-slate-50/80 transition-all">
+      <td className="py-3.5 px-4 font-mono font-bold text-brand-600">
+        {o.order_number}
+      </td>
+      <td className="py-3.5 px-4">
+        <span className="font-bold text-slate-900 block">{o.student?.full_name || 'Student'}</span>
+        <span className="text-[10px] text-slate-400 block">{o.student?.email}</span>
+        <span className="text-[10px] text-slate-500 font-semibold">{o.student?.college_name || o.student_type}</span>
+      </td>
+      <td className="py-3.5 px-4 max-w-xs">
+        <span className="font-bold text-slate-800 line-clamp-1">{o.project_title}</span>
+        <span className="text-[10px] text-slate-400">Deadline: {o.deadline ? new Date(o.deadline).toLocaleDateString() : 'N/A'}</span>
+      </td>
+      <td className="py-3.5 px-4">
+        <span className="capitalize font-semibold text-slate-700">{o.domain || o.category_key}</span>
+        <span className="text-[10px] text-slate-400 block uppercase">{o.student_type}</span>
+      </td>
+      <td className="py-3.5 px-4">
+        <span className="font-bold text-slate-900 block">Total: ₹{o.total_price}</span>
+        <span className="text-[10px] text-emerald-600">Adv: ₹{o.advance_amount}</span>
+        <span className="text-[10px] text-slate-400 block">Bal: ₹{o.balance_amount}</span>
+        {o.coupon_code && (
+          <span className="text-[9px] bg-amber-50 text-amber-700 font-bold px-1.5 py-0.5 rounded border border-amber-200 block mt-0.5 w-fit">
+            🎟️ {o.coupon_code} (-₹{o.discount_amount || 0})
+          </span>
+        )}
+      </td>
+      <td className="py-3.5 px-4">
+        <StatusBadge status={o.status} />
+        {o.pending_payment_submission ? (
+          <div className="mt-1 space-y-0.5">
+            <span className="text-[10px] font-mono text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200 block w-fit font-bold">
+              UTR: {o.pending_payment_submission.utr_number}
+            </span>
+            <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 block w-fit">
+              Pay Submitted: ₹{o.pending_payment_submission.amount} ({o.pending_payment_submission.payment_type})
+            </span>
+          </div>
+        ) : o.utr_number ? (
+          <span className="text-[10px] font-mono text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200 block mt-1 w-fit">
+            UTR: {o.utr_number}
+          </span>
+        ) : null}
+      </td>
+      <td className="py-3.5 px-4 text-right space-x-1.5">
+        {(o.status === 'payment_submitted' || o.status === 'balance_submitted') && (
+          <span className="inline-flex items-center gap-1 mr-1">
+            <button
+              type="button"
+              onClick={() => handleVerifyPayment(o.id, 'approve')}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] px-2.5 py-1 rounded-xl font-bold inline-flex items-center gap-1 shadow-sm"
+              title="Verify Bank Statement & Approve"
+            >
+              <CheckCircle2 className="w-3 h-3" /> Approve ₹{o.pending_payment_submission?.amount || (o.status === 'balance_submitted' ? o.balance_amount : o.advance_amount)}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleVerifyPayment(o.id, 'reject')}
+              className="bg-red-100 hover:bg-red-200 text-red-700 text-[11px] px-2 py-1 rounded-xl font-bold inline-flex items-center gap-1"
+              title="Reject Invalid UTR"
+            >
+              <X className="w-3 h-3" /> Reject
+            </button>
+          </span>
+        )}
+
+        {o.status === 'revision_requested' && (
+          <button
+            type="button"
+            onClick={() => handleAcceptRevision(o.id)}
+            className="bg-amber-100 hover:bg-amber-200 text-amber-900 text-[11px] px-2.5 py-1 rounded-xl font-bold inline-flex items-center gap-1 shadow-sm"
+            title="Accept Revision Request"
+          >
+            <RefreshCw className="w-3 h-3 text-amber-700" /> Accept Rev
+          </button>
+        )}
+
+        <button
+          type="button"
+          onClick={() => {
+            setPlagOrder(o);
+            setPlagiarismScore((o as any).plagiarism_score || 3.8);
+            setAiScore((o as any).ai_detection_score || 0.0);
+            setPlagReportUrl((o as any).plagiarism_report_url || '');
+          }}
+          className="btn-secondary text-[11px] px-2 py-1 font-bold inline-flex items-center gap-1 text-emerald-700 hover:bg-emerald-50"
+          title="Set Plagiarism & AI Score"
+        >
+          <Shield className="w-3 h-3 text-emerald-600" /> Plag
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setSelectedOrder(o);
+            setNewStatus(o.status);
+            setAdminNotes(o.admin_notes || '');
+            setStatusTotalPrice(String(o.total_price));
+            setStatusAdvanceAmount(String(o.advance_amount || 0));
+          }}
+          className="btn-secondary text-[11px] px-2.5 py-1 font-bold"
+        >
+          Status
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setUploadOrder(o);
+            setUploadTotalPrice(String(o.total_price));
+            setDeliverableFile(null);
+          }}
+          className="btn-secondary text-[11px] px-2.5 py-1 font-bold inline-flex items-center gap-1"
+          title="Upload Source Code / Deliverables"
+        >
+          <Upload className="w-3 h-3 text-purple-600" /> Deliver
+        </button>
+
+        <Link
+          to={`/admin/chat/${o.id}`}
+          className="btn-primary text-[11px] px-2.5 py-1 font-bold inline-flex items-center gap-1"
+        >
+          <MessageCircle className="w-3 h-3" /> Chat
+        </Link>
+      </td>
+    </tr>
+  );
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -174,13 +306,13 @@ export const AdminOrders: React.FC = () => {
   }
 
   return (
-    <div className="p-6 sm:p-8 space-y-6 bg-slate-50 min-h-screen">
+    <div className="p-6 sm:p-8 space-y-8 bg-slate-50 min-h-screen">
       
       {/* Page Title */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black text-slate-900">Student Orders Management</h1>
-          <p className="text-xs text-slate-500">Track and update project lifecycles, upload deliverables & chat</p>
+          <p className="text-xs text-slate-500">Track and update project lifecycles, upload deliverables & verify payments</p>
         </div>
 
         {/* Search */}
@@ -221,162 +353,132 @@ export const AdminOrders: React.FC = () => {
         ))}
       </div>
 
-      {/* Orders Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider text-[10px] border-b border-slate-200">
-              <tr>
-                <th className="py-3.5 px-4">Order Ref</th>
-                <th className="py-3.5 px-4">Student Info</th>
-                <th className="py-3.5 px-4">Project Title</th>
-                <th className="py-3.5 px-4">Domain / Type</th>
-                <th className="py-3.5 px-4">Pricing</th>
-                <th className="py-3.5 px-4">Status</th>
-                <th className="py-3.5 px-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-              {filteredOrders.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400">
-                    No orders match your filter.
-                  </td>
-                </tr>
-              ) : (
-                filteredOrders.map(o => (
-                  <tr key={o.id} className="hover:bg-slate-50/80 transition-all">
-                    <td className="py-3.5 px-4 font-mono font-bold text-brand-600">
-                      {o.order_number}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span className="font-bold text-slate-900 block">{o.student?.full_name || 'Student'}</span>
-                      <span className="text-[10px] text-slate-400 block">{o.student?.email}</span>
-                      <span className="text-[10px] text-slate-500 font-semibold">{o.student?.college_name || o.student_type}</span>
-                    </td>
-                    <td className="py-3.5 px-4 max-w-xs">
-                      <span className="font-bold text-slate-800 line-clamp-1">{o.project_title}</span>
-                      <span className="text-[10px] text-slate-400">Deadline: {o.deadline ? new Date(o.deadline).toLocaleDateString() : 'N/A'}</span>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span className="capitalize font-semibold text-slate-700">{o.domain || o.category_key}</span>
-                      <span className="text-[10px] text-slate-400 block uppercase">{o.student_type}</span>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span className="font-bold text-slate-900 block">Total: ₹{o.total_price}</span>
-                      <span className="text-[10px] text-emerald-600">Adv: ₹{o.advance_amount}</span>
-                      <span className="text-[10px] text-slate-400 block">Bal: ₹{o.balance_amount}</span>
-                      {o.coupon_code && (
-                        <span className="text-[9px] bg-amber-50 text-amber-700 font-bold px-1.5 py-0.5 rounded border border-amber-200 block mt-0.5 w-fit">
-                          🎟️ {o.coupon_code} (-₹{o.discount_amount || 0})
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <StatusBadge status={o.status} />
-                      {o.pending_payment_submission ? (
-                        <div className="mt-1 space-y-0.5">
-                          <span className="text-[10px] font-mono text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200 block w-fit font-bold">
-                            UTR: {o.pending_payment_submission.utr_number}
-                          </span>
-                          <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 block w-fit">
-                            Pay Submitted: ₹{o.pending_payment_submission.amount} ({o.pending_payment_submission.payment_type})
-                          </span>
-                        </div>
-                      ) : o.utr_number ? (
-                        <span className="text-[10px] font-mono text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200 block mt-1 w-fit">
-                          UTR: {o.utr_number}
-                        </span>
-                      ) : null}
-                    </td>
-                    <td className="py-3.5 px-4 text-right space-x-1.5">
-                      {(o.status === 'payment_submitted' || o.status === 'balance_submitted') && (
-                        <span className="inline-flex items-center gap-1 mr-1">
-                          <button
-                            type="button"
-                            onClick={() => handleVerifyPayment(o.id, 'approve')}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] px-2.5 py-1 rounded-xl font-bold inline-flex items-center gap-1 shadow-sm"
-                            title="Verify Bank Statement & Approve"
-                          >
-                            <CheckCircle2 className="w-3 h-3" /> Approve ₹{o.pending_payment_submission?.amount || (o.status === 'balance_submitted' ? o.balance_amount : o.advance_amount)}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleVerifyPayment(o.id, 'reject')}
-                            className="bg-red-100 hover:bg-red-200 text-red-700 text-[11px] px-2 py-1 rounded-xl font-bold inline-flex items-center gap-1"
-                            title="Reject Invalid UTR"
-                          >
-                            <X className="w-3 h-3" /> Reject
-                          </button>
-                        </span>
-                      )}
+      {/* CASE 1: Default 'all' view shows Active Pipeline on top, and Completed Orders at bottom */}
+      {statusFilter === 'all' ? (
+        <div className="space-y-8">
+          {/* Active Orders Section */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-brand-600 animate-pulse"></span>
+                🚀 Active Project Pipeline ({activeOrders.length})
+              </h2>
+              <span className="text-xs text-slate-500 font-medium">In-flight deliveries, payments & reviews</span>
+            </div>
 
-                      {o.status === 'revision_requested' && (
-                        <button
-                          type="button"
-                          onClick={() => handleAcceptRevision(o.id)}
-                          className="bg-amber-100 hover:bg-amber-200 text-amber-900 text-[11px] px-2.5 py-1 rounded-xl font-bold inline-flex items-center gap-1 shadow-sm"
-                          title="Accept Revision Request"
-                        >
-                          <RefreshCw className="w-3 h-3 text-amber-700" /> Accept Rev
-                        </button>
-                      )}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider text-[10px] border-b border-slate-200">
+                    <tr>
+                      <th className="py-3.5 px-4">Order Ref</th>
+                      <th className="py-3.5 px-4">Student Info</th>
+                      <th className="py-3.5 px-4">Project Title</th>
+                      <th className="py-3.5 px-4">Domain / Type</th>
+                      <th className="py-3.5 px-4">Pricing</th>
+                      <th className="py-3.5 px-4">Status</th>
+                      <th className="py-3.5 px-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                    {activeOrders.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="py-10 text-center text-slate-400">
+                          No active projects currently in the pipeline.
+                        </td>
+                      </tr>
+                    ) : (
+                      activeOrders.map(renderOrderRow)
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
 
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPlagOrder(o);
-                          setPlagiarismScore((o as any).plagiarism_score || 3.8);
-                          setAiScore((o as any).ai_detection_score || 0.0);
-                          setPlagReportUrl((o as any).plagiarism_report_url || '');
-                        }}
-                        className="btn-secondary text-[11px] px-2 py-1 font-bold inline-flex items-center gap-1 text-emerald-700 hover:bg-emerald-50"
-                        title="Set Plagiarism & AI Score"
-                      >
-                        <Shield className="w-3 h-3 text-emerald-600" /> Plag
-                      </button>
+          {/* Completed Orders Section (Positioned at bottom with dedicated header) */}
+          <div className="space-y-3 pt-4 border-t border-slate-200">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-black text-emerald-800 uppercase tracking-wider flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                ✓ Completed Projects & Certified Students ({completedOrders.length})
+              </h2>
+              <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                100% Fully Settled & Delivered
+              </span>
+            </div>
 
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedOrder(o);
-                          setNewStatus(o.status);
-                          setAdminNotes(o.admin_notes || '');
-                          setStatusTotalPrice(String(o.total_price));
-                          setStatusAdvanceAmount(String(o.advance_amount || 0));
-                        }}
-                        className="btn-secondary text-[11px] px-2.5 py-1 font-bold"
-                      >
-                        Status
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setUploadOrder(o);
-                          setUploadTotalPrice(String(o.total_price));
-                          setDeliverableFile(null);
-                        }}
-                        className="btn-secondary text-[11px] px-2.5 py-1 font-bold inline-flex items-center gap-1"
-                        title="Upload Source Code / Deliverables"
-                      >
-                        <Upload className="w-3 h-3 text-purple-600" /> Deliver
-                      </button>
-
-                      <Link
-                        to={`/admin/chat/${o.id}`}
-                        className="btn-primary text-[11px] px-2.5 py-1 font-bold inline-flex items-center gap-1"
-                      >
-                        <MessageCircle className="w-3 h-3" /> Chat
-                      </Link>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+            <div className="bg-white rounded-2xl border border-emerald-200/80 shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-emerald-50/60 text-emerald-800 uppercase tracking-wider text-[10px] border-b border-emerald-100">
+                    <tr>
+                      <th className="py-3.5 px-4">Order Ref</th>
+                      <th className="py-3.5 px-4">Student Info</th>
+                      <th className="py-3.5 px-4">Project Title</th>
+                      <th className="py-3.5 px-4">Domain / Type</th>
+                      <th className="py-3.5 px-4">Pricing</th>
+                      <th className="py-3.5 px-4">Status</th>
+                      <th className="py-3.5 px-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                    {completedOrders.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="py-10 text-center text-slate-400">
+                          No completed projects recorded yet.
+                        </td>
+                      </tr>
+                    ) : (
+                      completedOrders.map(renderOrderRow)
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      ) : (
+        /* CASE 2: Specific status tab is selected */
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider">
+              {statusFilter === 'completed'
+                ? `✓ Completed Projects & Certified Students (${filteredOrders.length})`
+                : `Filtered Orders (${filteredOrders.length})`}
+            </h2>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider text-[10px] border-b border-slate-200">
+                  <tr>
+                    <th className="py-3.5 px-4">Order Ref</th>
+                    <th className="py-3.5 px-4">Student Info</th>
+                    <th className="py-3.5 px-4">Project Title</th>
+                    <th className="py-3.5 px-4">Domain / Type</th>
+                    <th className="py-3.5 px-4">Pricing</th>
+                    <th className="py-3.5 px-4">Status</th>
+                    <th className="py-3.5 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                  {filteredOrders.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-12 text-center text-slate-400">
+                        No orders match your filter.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredOrders.map(renderOrderRow)
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Change Status Modal */}
       {selectedOrder && (

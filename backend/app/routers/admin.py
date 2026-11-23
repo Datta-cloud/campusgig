@@ -9,13 +9,17 @@ from sqlalchemy import func
 from pydantic import BaseModel
 
 from app.database import get_db
-from app.models.order import Order
+from app.models.order import Order, OrderGroupMember
 from app.models.user import User
 from app.models.pricing import PricingConfig
 from app.models.coupon import Coupon
 from app.models.payment_submission import PaymentSubmission
 from app.models.attachment import OrderAttachment
-from app.services.auth_service import require_admin
+from app.models.chat import ChatMessage
+from app.models.course import CourseEnrollment
+from app.models.notification import Notification
+from app.models.walkthrough_session import WalkthroughSession
+from app.services.auth_service import require_admin, hash_password
 from app.config import UPLOAD_DIR_DELIVERABLES, MAX_FILE_SIZE_MB
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
@@ -863,6 +867,116 @@ def admin_schedule_meeting(
         "meeting_url": meeting_url,
         "scheduled_at": req.scheduled_at.isoformat()
     }
+
+
+class ResetDatabaseRequest(BaseModel):
+    secret_key: Optional[str] = None
+
+
+@router.post("/reset-all-student-data")
+def reset_all_student_data(
+    req: ResetDatabaseRequest = None,
+    db: Session = Depends(get_db)
+):
+    key = req.secret_key if req else None
+    if key != "CAMPUSGIG_FRESH_START_2026":
+        raise HTTPException(
+            status_code=403,
+            detail="Forbidden: Invalid or missing administrative reset secret key."
+        )
+
+    try:
+        # 1. Purge all dependent transactional records across all tables
+        db.query(PaymentSubmission).delete(synchronize_session=False)
+        db.query(WalkthroughSession).delete(synchronize_session=False)
+        db.query(ChatMessage).delete(synchronize_session=False)
+        db.query(OrderAttachment).delete(synchronize_session=False)
+        db.query(OrderGroupMember).delete(synchronize_session=False)
+        db.query(Notification).delete(synchronize_session=False)
+        db.query(CourseEnrollment).delete(synchronize_session=False)
+        db.query(Order).delete(synchronize_session=False)
+
+        # 2. Delete all non-admin users
+        db.query(User).filter(User.role != "admin").delete(synchronize_session=False)
+
+        # 3. Ensure primary clean admin account exists and has guaranteed credentials
+        admin_pass = "Admin@CampusGig2026"
+        hashed_pw = hash_password(admin_pass)
+
+        admin_user = db.query(User).filter(User.username == "admin").first()
+        if admin_user:
+            admin_user.email = "admin@campusgig.com"
+            admin_user.full_name = "CampusGig Admin"
+            admin_user.role = "admin"
+            admin_user.hashed_password = hashed_pw
+            admin_user.is_active = True
+            admin_user.is_online = False
+            admin_user.wallet_balance = 0.0
+            admin_user.student_type = None
+            admin_user.phone = "7020209079"
+        else:
+            admin_user = User(
+                email="admin@campusgig.com",
+                username="admin",
+                full_name="CampusGig Admin",
+                role="admin",
+                hashed_password=hashed_pw,
+                phone="7020209079",
+                is_active=True,
+                is_online=False,
+                wallet_balance=0.0
+            )
+            db.add(admin_user)
+
+        # 4. Remove any duplicate or secondary admin accounts
+        db.query(User).filter(User.role == "admin", User.username != "admin").delete(synchronize_session=False)
+
+        # 5. Reset/Ensure active coupon DATTA07
+        coupon = db.query(Coupon).filter(Coupon.code == "DATTA07").first()
+        if coupon:
+            coupon.discount_percent = 10.0
+            coupon.is_active = True
+            coupon.max_uses = 1000
+            coupon.used_count = 0
+            coupon.min_order_amount = 0.0
+        else:
+            coupon = Coupon(
+                code="DATTA07",
+                discount_percent=10.0,
+                is_active=True,
+                max_uses=1000,
+                used_count=0,
+                min_order_amount=0.0
+            )
+            db.add(coupon)
+
+        db.commit()
+
+        # Delete any temporary deliverable files
+        if os.path.exists(UPLOAD_DIR_DELIVERABLES):
+            for filename in os.listdir(UPLOAD_DIR_DELIVERABLES):
+                file_path = os.path.join(UPLOAD_DIR_DELIVERABLES, filename)
+                try:
+                    if os.path.isfile(file_path) or os.path.islink(file_path):
+                        os.unlink(file_path)
+                    elif os.path.isdir(file_path):
+                        shutil.rmtree(file_path)
+                except Exception:
+                    pass
+
+        return {
+            "status": "success",
+            "message": "All student accounts, orders, chats, attachments, payments, and meeting sessions have been permanently wiped. Clean admin account active.",
+            "admin_credentials": {
+                "username": "admin",
+                "email": "admin@campusgig.com",
+                "role": "admin"
+            }
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database purge failed: {str(e)}")
+
 
 
 

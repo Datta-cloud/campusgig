@@ -306,32 +306,39 @@ export const OrderWizard: React.FC = () => {
   const handleConfirmOrder = async () => {
     if (loading) return;
     const cleanUtr = utrNumber.trim();
-    if (cleanUtr.length !== 12) {
-      alert('Please enter a valid 12-digit UPI UTR / Transaction Reference number from your payment receipt.');
+    if (cleanUtr.length !== 12 || !/^\d{12}$/.test(cleanUtr)) {
+      alert('Please enter a valid 12-digit numeric UPI UTR / Transaction Reference number from your payment receipt.');
       return;
     }
     setLoading(true);
     try {
-      const res = await api.post('/orders', {
-        category_key: studentType === 'school' ? 'school_assignment' : categoryKey,
-        project_title: aiScope?.refined_title || projectTitle,
-        description: description,
-        domain: studentType === 'college' ? categoryKey : schoolSubject,
-        deliverables: selectedAddons,
-        page_count: studentType === 'school' ? pageCount : null,
-        deadline: new Date(deadline).toISOString(),
-        urgency: urgency,
-        payment_method: paymentMethod,
-        student_notes: `UTR: ${cleanUtr}. Coupon: ${appliedCoupon || 'None'}. Scope summary: ${aiScope?.methodology || ''}`,
-        ai_refined_scope: JSON.stringify(aiScope),
-      });
+      let currentOrderId = orderCreatedId;
+      let currentOrderNumber = createdOrderNumber;
 
-      const orderData = res.data;
-      setOrderCreatedId(orderData.id);
-      setCreatedOrderNumber(orderData.order_number);
+      if (!currentOrderId) {
+        const res = await api.post('/orders', {
+          category_key: studentType === 'school' ? 'school_assignment' : categoryKey,
+          project_title: aiScope?.refined_title || projectTitle,
+          description: description,
+          domain: studentType === 'college' ? categoryKey : schoolSubject,
+          deliverables: selectedAddons,
+          page_count: studentType === 'school' ? pageCount : null,
+          deadline: new Date(deadline).toISOString(),
+          urgency: urgency,
+          payment_method: paymentMethod,
+          student_notes: `UTR: ${cleanUtr}. Coupon: ${appliedCoupon || 'None'}. Scope summary: ${aiScope?.methodology || ''}`,
+          ai_refined_scope: JSON.stringify(aiScope),
+        });
+
+        const orderData = res.data;
+        currentOrderId = orderData.id;
+        currentOrderNumber = orderData.order_number;
+        setOrderCreatedId(currentOrderId);
+        setCreatedOrderNumber(currentOrderNumber);
+      }
 
       // Confirm payment with UTR and Coupon
-      await api.put(`/orders/${orderData.id}/confirm-payment`, {
+      await api.put(`/orders/${currentOrderId}/confirm-payment`, {
         payment_method: paymentMethod,
         utr_number: cleanUtr,
         coupon_code: appliedCoupon,
