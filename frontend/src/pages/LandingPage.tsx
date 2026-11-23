@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Zap, Shield, Clock, BrainCircuit, MessageCircle, ArrowRight, X, Eye, EyeOff } from 'lucide-react';
+import { Zap, Shield, Clock, BrainCircuit, MessageCircle, ArrowRight, X, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import api from '../services/api';
 
 const services = [
   { icon: '🤖', title: 'Machine Learning', desc: 'CNN, NLP, Regression, Classification', price: '₹2,499+' },
@@ -32,7 +33,12 @@ const LandingPage: React.FC = () => {
     college_name: '', college_branch: '', school_class: '', phone: '',
   });
 
-  // Autofill credentials from localStorage
+  // Pre-warm backend cloud server & autofill credentials
+  useEffect(() => {
+    // Ping health endpoint to instantly wake Render backend if sleeping
+    api.get('/health').catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (tab === 'admin') {
       const savedAdminUser = localStorage.getItem('cg_saved_admin_user') || 'admin';
@@ -59,13 +65,14 @@ const LandingPage: React.FC = () => {
     setError('');
     try {
       await login(user, pass);
+      setShowModal(false);
       if (tab === 'admin') {
         navigate('/admin');
       } else {
         navigate('/dashboard');
       }
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Login failed. Try again.');
+      setError(err?.response?.data?.detail || 'Server is waking up. Please click again in a few seconds.');
     } finally {
       setLoading(false);
     }
@@ -88,9 +95,11 @@ const LandingPage: React.FC = () => {
 
       if (tab === 'admin') {
         await login(form.email, form.password);
+        setShowModal(false);
         navigate('/admin');
       } else if (mode === 'login') {
         await login(form.email, form.password);
+        setShowModal(false);
         navigate('/dashboard');
       } else {
         await register({
@@ -102,10 +111,11 @@ const LandingPage: React.FC = () => {
           school_class: form.school_class || undefined,
           phone: form.phone || undefined,
         });
+        setShowModal(false);
         navigate('/dashboard');
       }
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Something went wrong. Try again.');
+      setError(err?.response?.data?.detail || 'Server is waking up. Please click again in a few seconds.');
     } finally {
       setLoading(false);
     }
@@ -259,17 +269,25 @@ const LandingPage: React.FC = () => {
                   <div className="flex gap-2">
                     <button
                       type="button"
+                      disabled={loading}
                       onClick={() => handleQuickFill('ananya_cse', 'Student@2026')}
-                      className="flex-1 text-xs py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl font-bold border border-blue-200 flex items-center justify-center gap-1.5 transition-all"
+                      className="flex-1 text-xs py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl font-bold border border-blue-200 flex items-center justify-center gap-1.5 transition-all disabled:opacity-50"
                     >
                       ⚡ Auto-Fill Ananya
                     </button>
                     <button
                       type="button"
+                      disabled={loading}
                       onClick={() => handleDirectLogin('ananya_cse', 'Student@2026')}
-                      className="flex-1 text-xs py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                      className="flex-1 text-xs py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm disabled:opacity-50"
                     >
-                      🚀 1-Click Direct Login
+                      {loading ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Logging in...
+                        </>
+                      ) : (
+                        '🚀 1-Click Direct Login'
+                      )}
                     </button>
                   </div>
                 )}
@@ -279,17 +297,25 @@ const LandingPage: React.FC = () => {
                   <div className="flex gap-2">
                     <button
                       type="button"
+                      disabled={loading}
                       onClick={() => handleQuickFill('admin', 'Admin@CampusGig2026')}
-                      className="flex-1 text-xs py-2 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-xl font-bold border border-purple-200 flex items-center justify-center gap-1.5 transition-all"
+                      className="flex-1 text-xs py-2 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-xl font-bold border border-purple-200 flex items-center justify-center gap-1.5 transition-all disabled:opacity-50"
                     >
                       ⚡ Auto-Fill Admin
                     </button>
                     <button
                       type="button"
+                      disabled={loading}
                       onClick={() => handleDirectLogin('admin', 'Admin@CampusGig2026')}
-                      className="flex-1 text-xs py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                      className="flex-1 text-xs py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm disabled:opacity-50"
                     >
-                      🚀 1-Click Direct Login
+                      {loading ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Logging in...
+                        </>
+                      ) : (
+                        '🚀 1-Click Direct Login'
+                      )}
                     </button>
                   </div>
                 )}
@@ -333,9 +359,28 @@ const LandingPage: React.FC = () => {
                   </label>
                 </div>
 
-                <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-3 text-base font-bold shadow-md shadow-brand-500/20">
-                  {loading ? 'Please wait...' : tab === 'admin' ? '🔑 Admin Login' : mode === 'login' ? '🚀 Sign In' : '✨ Create Account'}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="btn-primary w-full justify-center py-3 text-base font-bold shadow-md shadow-brand-500/20 disabled:opacity-50"
+                >
+                  {loading ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" /> Logging in...
+                    </span>
+                  ) : tab === 'admin' ? (
+                    '🔑 Admin Login'
+                  ) : mode === 'login' ? (
+                    '🚀 Sign In'
+                  ) : (
+                    '✨ Create Account'
+                  )}
                 </button>
+                {loading && (
+                  <p className="text-[11px] text-center text-slate-500 animate-pulse">
+                    Connecting to server... (Render cloud server waking up if idle)
+                  </p>
+                )}
               </form>
             </div>
           </div>

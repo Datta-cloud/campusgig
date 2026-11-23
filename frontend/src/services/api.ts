@@ -27,11 +27,12 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Handle 401 -> redirect to login
+// Handle 401 -> redirect to login (only if not an auth endpoint)
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const isAuthEndpoint = error.config?.url?.includes('/auth/login') || error.config?.url?.includes('/auth/register');
+    if (error.response?.status === 401 && !isAuthEndpoint) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/';
