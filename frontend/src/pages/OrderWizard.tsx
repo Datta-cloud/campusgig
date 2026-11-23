@@ -31,6 +31,60 @@ interface AiScopeData {
   suggested_improvements: string[];
 }
 
+const getDomainFallbackScope = (title: string, domainId: string): AiScopeData => {
+  let tech_stack = ['Python', 'FastAPI', 'React', 'Tailwind CSS'];
+  let deliverables_detail = ['Complete Working Source Code', 'Project Report PDF (IEEE Format)', 'PowerPoint Presentation Slides (PPT)'];
+  let methodology = 'Agile Sprint Methodology with Milestone Demonstration';
+  let suggested_improvements = ['Add responsive dark mode theme', 'Include unit and integration test suite'];
+
+  if (domainId === 'college_ml') {
+    tech_stack = ['Python', 'Scikit-Learn', 'Pandas', 'NumPy', 'Flask / FastAPI', 'Streamlit UI'];
+    deliverables_detail = ['Complete Python Source Code', 'Trained ML Model (.pkl / .joblib)', 'Model Evaluation & Confusion Matrix Report', 'Interactive Prediction UI'];
+    methodology = 'CRISP-DM (Cross-Industry Standard Process for Data Mining)';
+    suggested_improvements = ['Include feature importance analysis', 'Implement cross-validation'];
+  } else if (domainId === 'college_genai' || domainId === 'college_agentic') {
+    tech_stack = ['Python', 'Google Gemini 2.0 API', 'LangChain', 'FAISS Vector DB', 'FastAPI', 'React'];
+    deliverables_detail = ['RAG Knowledge Pipeline & Embeddings', 'Prompt Templates & Context Manager', 'Autonomous Multi-Tool Agent Logic', 'Full Web Dashboard'];
+    methodology = 'Retrieval-Augmented Generation (RAG) & Agentic Architecture';
+    suggested_improvements = ['Add conversation memory cache', 'Include citation & confidence score indicators'];
+  } else if (domainId === 'college_fullstack') {
+    tech_stack = ['React (TypeScript)', 'Node.js / FastAPI', 'PostgreSQL / Supabase', 'Tailwind CSS'];
+    deliverables_detail = ['Frontend Web Application', 'REST API Backend Architecture', 'Database Schema & Migrations', 'Role-Based Authentication (JWT)'];
+    methodology = 'Modular Full-Stack Architecture with CI/CD Workflow';
+    suggested_improvements = ['Add real-time websocket updates', 'Integrate payment gateway'];
+  } else if (domainId === 'college_frontend') {
+    tech_stack = ['React 18', 'TypeScript', 'Tailwind CSS', 'Vite', 'Lucide Icons'];
+    deliverables_detail = ['Pixel-Perfect Responsive UI', 'Component Library & State Management', 'Clean Documentation & Demo Video'];
+    methodology = 'Component-Driven Development with Atomic Design';
+    suggested_improvements = ['Add dark mode theme switch', 'Ensure 100% Lighthouse accessibility score'];
+  } else if (domainId === 'college_backend') {
+    tech_stack = ['FastAPI', 'Python', 'PostgreSQL', 'SQLAlchemy', 'JWT', 'Docker'];
+    deliverables_detail = ['RESTful API Endpoints', 'Database Models & Alembic Migrations', 'Swagger / OpenAPI Documentation', 'Postman Collection'];
+    methodology = 'Clean Architecture with Layered Service Pattern';
+    suggested_improvements = ['Add Redis caching layer', 'Implement rate limiting and API security'];
+  } else if (domainId === 'college_android') {
+    tech_stack = ['React Native', 'TypeScript', 'Expo', 'Firebase', 'Tailwind'];
+    deliverables_detail = ['Mobile App APK (Android)', 'Complete React Native Source Code', 'Firebase Backend Integration', 'Setup & Run Guide'];
+    methodology = 'Cross-Platform Mobile Development Lifecycle';
+    suggested_improvements = ['Add push notifications', 'Support offline caching'];
+  } else if (domainId === 'college_ds') {
+    tech_stack = ['Python', 'Pandas', 'NumPy', 'Matplotlib', 'Seaborn', 'Streamlit Dashboard'];
+    deliverables_detail = ['Exploratory Data Analysis (EDA) Notebook', 'Data Cleaning & Feature Engineering Pipeline', 'Interactive Analytics Dashboard', 'Summary Insights Report'];
+    methodology = 'Data Science Lifecycle: EDA → Feature Engineering → Modeling → Visualization';
+    suggested_improvements = ['Add predictive trend forecasting', 'Include interactive export to PDF/CSV'];
+  }
+
+  const cleanTitle = title.trim();
+  return {
+    refined_title: cleanTitle ? `${cleanTitle} - Capstone Implementation` : 'Academic Capstone Project',
+    tech_stack,
+    deliverables_detail,
+    timeline_days: 7,
+    methodology,
+    suggested_improvements,
+  };
+};
+
 export const OrderWizard: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -156,27 +210,34 @@ export const OrderWizard: React.FC = () => {
     }
     setRefiningAi(true);
     setStep(3);
+
+    const fallback = getDomainFallbackScope(projectTitle, categoryKey);
+
+    // Timeout safety fallback after 4 seconds
+    const timeoutPromise = new Promise<void>((resolve) => {
+      setTimeout(() => resolve(), 4000);
+    });
+
     try {
       const selectedDomainObj = COLLEGE_DOMAINS.find(d => d.id === categoryKey);
-      const res = await api.post('/orders/refine-scope', {
+      const apiPromise = api.post('/orders/refine-scope', {
         project_title: projectTitle,
         domain: studentType === 'college' ? (selectedDomainObj?.name || 'Computer Science') : schoolSubject,
         deliverables: selectedAddons,
         student_type: studentType,
         notes: description,
-      });
-      setAiScope(res.data);
+      }, { timeout: 4000 });
+
+      const raceResult = await Promise.race([apiPromise, timeoutPromise]);
+      if (raceResult && (raceResult as any).data) {
+        setAiScope((raceResult as any).data);
+      } else {
+        // Timed out after 4 seconds -> apply rich domain fallback immediately
+        setAiScope(fallback);
+      }
     } catch (e) {
-      console.error(e);
-      // Fallback
-      setAiScope({
-        refined_title: projectTitle,
-        tech_stack: ['Python', 'FastAPI', 'React', 'Tailwind CSS'],
-        deliverables_detail: ['Full Source Code', 'Project Report PDF', 'PPT Slides'],
-        timeline_days: 5,
-        methodology: 'Iterative agile sprints with milestone demonstrations',
-        suggested_improvements: ['Add dark mode UI', 'Include comprehensive test suite'],
-      });
+      console.warn('AI scope refinement API call timed out or failed, using instant domain fallback:', e);
+      setAiScope(fallback);
     } finally {
       setRefiningAi(false);
     }
@@ -186,18 +247,27 @@ export const OrderWizard: React.FC = () => {
   const handlePromptRefinement = async () => {
     if (!customPrompt.trim()) return;
     setRefiningAi(true);
+    const selectedDomainObj = COLLEGE_DOMAINS.find(d => d.id === categoryKey);
     try {
       const res = await api.post('/orders/refine-scope', {
         project_title: aiScope?.refined_title || projectTitle,
-        domain: studentType === 'college' ? categoryKey : schoolSubject,
+        domain: studentType === 'college' ? (selectedDomainObj?.name || 'Computer Science') : schoolSubject,
         deliverables: selectedAddons,
         student_type: studentType,
         notes: `${description} - Student modification request: ${customPrompt}`,
-      });
+      }, { timeout: 4500 });
       setAiScope(res.data);
       setCustomPrompt('');
     } catch (e) {
-      console.error(e);
+      console.warn('Prompt refinement timed out or failed:', e);
+      // Append student improvement note to proposal
+      if (aiScope) {
+        setAiScope({
+          ...aiScope,
+          suggested_improvements: [...(aiScope.suggested_improvements || []), customPrompt],
+        });
+      }
+      setCustomPrompt('');
     } finally {
       setRefiningAi(false);
     }
@@ -694,14 +764,29 @@ export const OrderWizard: React.FC = () => {
         {step === 3 && (
           <div className="space-y-6 animate-fade-in">
             {refiningAi ? (
-              <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center space-y-4">
-                <div className="w-16 h-16 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center mx-auto animate-spin">
+              <div className="bg-white p-8 sm:p-12 rounded-2xl border border-slate-200 text-center space-y-5 shadow-sm max-w-xl mx-auto">
+                <div className="w-16 h-16 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mx-auto animate-spin shadow-inner">
                   <RefreshCw className="w-8 h-8" />
                 </div>
-                <h3 className="text-lg font-bold text-slate-900">Synthesizing Project Scope with AI...</h3>
-                <p className="text-sm text-slate-500 max-w-md mx-auto">
-                  Analyzing domain architecture, tech stack compatibility, and assembling your IEEE specification.
-                </p>
+                <div className="space-y-1">
+                  <h3 className="text-lg font-bold text-slate-900">Synthesizing Project Scope with AI...</h3>
+                  <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto">
+                    Analyzing domain architecture, tech stack compatibility, and assembling your IEEE specification.
+                  </p>
+                </div>
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAiScope(getDomainFallbackScope(projectTitle, categoryKey));
+                      setRefiningAi(false);
+                    }}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold rounded-xl shadow-md transition-all active:scale-95 cursor-pointer"
+                  >
+                    <Zap className="w-4 h-4 text-amber-300" />
+                    ⚡ Skip Waiting & Review Scope Immediately →
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

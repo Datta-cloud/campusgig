@@ -234,27 +234,30 @@ const LandingPage: React.FC = () => {
 
       {/* Login/Register Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto" onClick={() => setShowModal(false)}>
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md animate-slide-up" onClick={e => e.stopPropagation()}>
-            <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-gray-100">
-              <X className="w-5 h-5 text-gray-500" />
-            </button>
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md my-auto max-h-[92vh] flex flex-col animate-slide-up overflow-hidden" onClick={e => e.stopPropagation()}>
+            {/* Modal Header & Tabs (Pinned at top) */}
+            <div className="relative border-b border-gray-100 flex-shrink-0 bg-white z-10">
+              <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-gray-100 z-10 transition-colors">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
 
-            {/* Tabs */}
-            <div className="flex border-b border-gray-100">
-              {(['student', 'admin'] as Tab[]).map(t => (
-                <button
-                  key={t}
-                  onClick={() => { setTab(t); setError(''); setMode('login'); }}
-                  className={`flex-1 py-4 text-sm font-semibold capitalize transition-colors ${tab === t ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-                >
-                  {t === 'student' ? '🎓 Student' : '🔑 Admin'} Login
-                </button>
-              ))}
+              <div className="flex pr-12">
+                {(['student', 'admin'] as Tab[]).map(t => (
+                  <button
+                    key={t}
+                    onClick={() => { setTab(t); setError(''); setMode('login'); }}
+                    className={`flex-1 py-4 text-sm font-semibold capitalize transition-colors ${tab === t ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                  >
+                    {t === 'student' ? '🎓 Student' : '🔑 Admin'} Login
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className="p-6">
+            {/* Scrollable Form Body with own scroll */}
+            <div className="p-5 sm:p-6 overflow-y-auto flex-1 max-h-[calc(92vh-64px)] custom-scrollbar overscroll-contain">
               {tab === 'student' && (
                 <div className="flex gap-2 mb-6 bg-gray-100 p-1 rounded-xl">
                   {(['login', 'register'] as AuthMode[]).map(m => (

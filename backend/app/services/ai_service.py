@@ -241,10 +241,14 @@ Provide a structured project scope in JSON format with these exact fields:
 
 Respond with ONLY the JSON object, no markdown, no explanation."""
 
-        response = client.models.generate_content(
-            model=GEMINI_MODEL,
-            contents=prompt
-        )
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(
+                client.models.generate_content,
+                model=GEMINI_MODEL,
+                contents=prompt
+            )
+            response = future.result(timeout=3.5)
 
         text = response.text.strip()
         # Strip markdown code blocks if present
