@@ -10,7 +10,13 @@ from app.config import (
 
 # Cloud Storage Configuration (Supabase Storage / AWS S3)
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
-SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "") or os.getenv("SUPABASE_KEY", "")
+SUPABASE_SERVICE_ROLE_KEY = (
+    os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+    or os.getenv("SUPABASE_SECRET_KEY", "")
+    or os.getenv("SUPABASE_KEY", "")
+)
+SUPABASE_PUBLISHABLE_KEY = os.getenv("SUPABASE_PUBLISHABLE_KEY", "")
+SUPABASE_JWKS_URL = os.getenv("SUPABASE_JWKS_URL", "")
 SUPABASE_STORAGE_BUCKET = os.getenv("SUPABASE_STORAGE_BUCKET", "campusgig-deliverables")
 
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "")
