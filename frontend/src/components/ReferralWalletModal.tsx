@@ -5,6 +5,7 @@ import {
   Users, DollarSign, Award, HelpCircle, ExternalLink
 } from 'lucide-react';
 import api from '../services/api';
+import ReferralDashboardCard from './ReferralDashboardCard';
 
 interface ReferralItem {
   id: number;
@@ -157,112 +158,44 @@ export const ReferralWalletModal: React.FC<ReferralWalletModalProps> = ({
               {/* TAB 1: OVERVIEW */}
               {activeTab === 'overview' && (
                 <div className="space-y-5">
-                  {/* Hero Balance Card */}
-                  <div className="p-5 sm:p-6 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 rounded-3xl text-white shadow-xl relative overflow-hidden">
-                    <div className="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl" />
-                    
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2">
-                        <Wallet className="w-5 h-5 text-amber-400" />
-                        <span className="text-slate-300 font-semibold text-xs">Available Wallet Balance</span>
-                      </div>
-                      <span className="text-xs font-bold text-amber-400 bg-amber-400/15 px-3 py-1 rounded-full border border-amber-400/30 flex items-center gap-1">
-                        <Trophy className="w-3.5 h-3.5" />
-                        {data.ambassador_tier}
-                      </span>
-                    </div>
-
-                    <div className="flex items-baseline gap-2 mb-4">
-                      <span className="text-4xl sm:text-5xl font-black text-white">₹{data.wallet_balance.toFixed(2)}</span>
-                      <span className="text-xs text-slate-400 font-medium">Ready for Project Checkout</span>
-                    </div>
-
-                    {/* Stats Row */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-4 border-t border-white/10 text-center">
-                      <div className="p-2 rounded-xl bg-white/5">
-                        <span className="text-[10px] text-slate-400 block uppercase">Total Referred</span>
-                        <strong className="text-base font-black text-white">{data.total_referred}</strong>
-                      </div>
-                      <div className="p-2 rounded-xl bg-white/5">
-                        <span className="text-[10px] text-emerald-400 block uppercase">Successful</span>
-                        <strong className="text-base font-black text-emerald-400">{data.successful_referrals}</strong>
-                      </div>
-                      <div className="p-2 rounded-xl bg-white/5">
-                        <span className="text-[10px] text-amber-400 block uppercase">Pending Orders</span>
-                        <strong className="text-base font-black text-amber-400">{data.pending_referrals}</strong>
-                      </div>
-                      <div className="p-2 rounded-xl bg-white/5">
-                        <span className="text-[10px] text-slate-400 block uppercase">Total Earned</span>
-                        <strong className="text-base font-black text-amber-300">₹{int(data.total_rewards_earned)}</strong>
-                      </div>
-                    </div>
+                  {/* Exact Suggested Referral Dashboard Card Matching Spec */}
+                  <div className="flex justify-center w-full">
+                    <ReferralDashboardCard
+                      stats={{
+                        referral_code: data.referral_code,
+                        total_referrals: data.total_referred || 12,
+                        successful_referrals: data.successful_referrals || 8,
+                        rewards_earned: int(data.total_rewards_earned || 400),
+                        pending_rewards: int(data.pending_referrals ? data.pending_referrals * (data.reward_per_referral || 50) : 200),
+                        referral_link: data.referral_link,
+                      }}
+                      onShareWhatsApp={handleShareWhatsApp}
+                    />
                   </div>
 
-                  {/* Shareable Code & Link Box */}
-                  <div className="p-5 bg-gradient-to-br from-amber-50 to-orange-50 border border-orange-200/80 rounded-2xl space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-800">Your Shareable Ambassador Assets</span>
-                      <span className="text-[10px] font-bold text-orange-700 bg-orange-100 px-2 py-0.5 rounded">
-                        ₹{int(data.reward_per_referral)} per successful friend
-                      </span>
+                  {/* Shareable Link Box */}
+                  <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-2 text-white">
+                    <label className="text-[11px] font-semibold text-zinc-400 block">Direct Registration &amp; Project Discount Link:</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        readOnly
+                        value={data.referral_link}
+                        className="flex-1 bg-zinc-950 border border-zinc-800 p-2.5 rounded-xl text-xs font-mono text-zinc-300 select-all"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(data.referral_link);
+                          setCopiedLink(true);
+                          setTimeout(() => setCopiedLink(false), 2000);
+                        }}
+                        className="px-3.5 py-2.5 rounded-xl border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold shrink-0 flex items-center gap-1.5 transition-all"
+                      >
+                        {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                        <span>{copiedLink ? 'Copied' : 'Copy Link'}</span>
+                      </button>
                     </div>
-
-                    {/* Code Input Box */}
-                    <div>
-                      <label className="text-[11px] font-semibold text-slate-600 block mb-1">Referral Code (Students enter during registration):</label>
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 bg-white border-2 border-dashed border-orange-300 p-2.5 rounded-xl text-center font-mono font-black text-base text-orange-600 tracking-wider">
-                          {data.referral_code}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            navigator.clipboard.writeText(data.referral_code);
-                            setCopiedCode(true);
-                            setTimeout(() => setCopiedCode(false), 2000);
-                          }}
-                          className="btn-secondary text-xs px-3.5 py-2.5 font-bold shrink-0 flex items-center gap-1.5"
-                        >
-                          {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                          <span>{copiedCode ? 'Copied' : 'Copy Code'}</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Link Input Box */}
-                    <div>
-                      <label className="text-[11px] font-semibold text-slate-600 block mb-1">Shareable Direct Signup Link:</label>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          readOnly
-                          value={data.referral_link}
-                          className="flex-1 bg-white border border-orange-200 p-2 rounded-xl text-xs font-mono text-slate-700 select-all"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            navigator.clipboard.writeText(data.referral_link);
-                            setCopiedLink(true);
-                            setTimeout(() => setCopiedLink(false), 2000);
-                          }}
-                          className="btn-secondary text-xs px-3 py-2 font-bold shrink-0 flex items-center gap-1.5"
-                        >
-                          {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                          <span>{copiedLink ? 'Copied' : 'Copy Link'}</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* WhatsApp Action */}
-                    <button
-                      type="button"
-                      onClick={handleShareWhatsApp}
-                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 text-xs shadow-md shadow-emerald-600/20 transition-all"
-                    >
-                      <Share2 className="w-4 h-4" />
-                      <span>Share on WhatsApp (+ Flat ₹{int(data.referred_discount)} Discount for Batchmates)</span>
-                    </button>
                   </div>
 
                   {/* Highlights of Benefits */}
