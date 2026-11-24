@@ -9,8 +9,6 @@ import OnlineIndicator from '../components/OnlineIndicator';
 import LoadingSpinner from '../components/LoadingSpinner';
 import PaymentModal from '../components/PaymentModal';
 import EmptyState from '../components/EmptyState';
-import OrderProgressTracker from '../components/OrderProgressTracker';
-import ReferralDashboardCard from '../components/ReferralDashboardCard';
 import { PackageOpen } from 'lucide-react';
 
 const StudentDashboard: React.FC = () => {
@@ -169,38 +167,6 @@ const StudentDashboard: React.FC = () => {
             </div>
           </div>
         ))}
-      </div>
-
-      {/* Suggested Designs: Live Order Tracking & Invite & Earn Dashboard */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8 items-start">
-        {/* Exact Suggested Order Progress Tracker Card */}
-        <div className="flex justify-center w-full">
-          <OrderProgressTracker
-            order={activeOrders.length > 0 ? activeOrders[0] : null}
-            sampleMode={activeOrders.length === 0}
-          />
-        </div>
-
-        {/* Exact Suggested Referral Dashboard Card */}
-        <div className="flex justify-center w-full">
-          <ReferralDashboardCard
-            stats={walletData ? {
-              referral_code: walletData.referral_code,
-              total_referrals: walletData.total_referred ?? 12,
-              successful_referrals: walletData.successful_referrals ?? 8,
-              rewards_earned: Math.round(walletData.total_rewards_earned ?? 400),
-              pending_rewards: Math.round(walletData.pending_referrals ? walletData.pending_referrals * (walletData.reward_per_referral || 50) : 200),
-              referral_link: walletData.referral_link,
-            } : undefined}
-            sampleMode={!walletData}
-            onShareWhatsApp={() => {
-              const code = walletData?.referral_code || 'CAMPUS2027';
-              const link = walletData?.referral_link || 'https://campusgig-ai.vercel.app';
-              const text = `Hey! Use my referral code *${code}* to get flat ₹200 OFF on your college final year capstone project or academic assignment on CampusGig AI! Order here: ${link}`;
-              window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
-            }}
-          />
-        </div>
       </div>
 
       {/* Orders Table */}
