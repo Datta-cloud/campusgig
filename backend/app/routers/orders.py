@@ -59,6 +59,7 @@ class RefineScopeRequest(BaseModel):
 class AcademicAssistantRequest(BaseModel):
     message: str
     student_type: Optional[str] = "college"
+    session_id: Optional[str] = None
     context: Optional[dict] = None
     history: Optional[List[dict]] = None
 
@@ -472,15 +473,66 @@ def refine_scope(req: RefineScopeRequest):
 
 
 @router.post("/ai/academic-assistant")
-def academic_assistant_chat(req: AcademicAssistantRequest):
+def academic_assistant_chat(
+    req: AcademicAssistantRequest,
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    from app.models.academic_chat import AcademicChatMessage
     if not req.message or not req.message.strip():
         raise HTTPException(status_code=400, detail="Message cannot be empty")
-    return ask_academic_assistant(
-        req.message.strip(),
+
+    clean_text = req.message.strip()
+
+    # Save student prompt to cloud DB
+    user_rec = AcademicChatMessage(
+        user_id=current_user.id if current_user else None,
+        session_id=req.session_id,
+        role="user",
+        content=clean_text,
+        student_type=req.student_type or "college"
+    )
+    db.add(user_rec)
+    db.commit()
+
+    # Build context from cloud DB if history not passed
+    history = req.history
+    if not history or len(history) == 0:
+        query = db.query(AcademicChatMessage)
+        if current_user:
+            query = query.filter(AcademicChatMessage.user_id == current_user.id)
+        elif req.session_id:
+            query = query.filter(AcademicChatMessage.session_id == req.session_id)
+        prev_msgs = query.filter(AcademicChatMessage.id != user_rec.id).order_by(AcademicChatMessage.created_at.desc()).limit(8).all()
+        prev_msgs.reverse()
+        history = [{"role": "user" if m.role == "user" else "model", "text": m.content} for m in prev_msgs]
+
+    result = ask_academic_assistant(
+        clean_text,
         req.student_type or "college",
         req.context,
-        history=req.history
+        history=history
     )
+
+    reply_str = result.get("reply", "")
+
+    # Save AI reply to cloud DB
+    ai_rec = AcademicChatMessage(
+        user_id=current_user.id if current_user else None,
+        session_id=req.session_id,
+        role="assistant",
+        content=reply_str,
+        student_type=req.student_type or "college"
+    )
+    db.add(ai_rec)
+    db.commit()
+
+    return {
+        "reply": reply_str,
+        "source": result.get("source", "gemini"),
+        "model": result.get("model", "gemini-2.5-flash"),
+        "saved_to_cloud": True
+    }
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)

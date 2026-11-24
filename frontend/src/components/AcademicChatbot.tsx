@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, X, Send, Sparkles, Bot, ArrowRight, BookOpen, Calculator, GraduationCap, ChevronDown, RotateCcw } from 'lucide-react';
+import { MessageSquare, X, Send, Sparkles, Bot, ArrowRight, BookOpen, Calculator, GraduationCap, ChevronDown, RotateCcw, Cloud } from 'lucide-react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -19,11 +19,26 @@ const STARTER_QUESTIONS = [
 
 const CHAT_STORAGE_KEY = 'campusgig_academic_chat_history';
 
+const getOrCreateSessionId = (): string => {
+  try {
+    let sid = localStorage.getItem('campusgig_chat_session_id');
+    if (!sid) {
+      sid = 'sid_' + Math.random().toString(36).substring(2, 12) + '_' + Date.now().toString(36);
+      localStorage.setItem('campusgig_chat_session_id', sid);
+    }
+    return sid;
+  } catch (e) {
+    return 'sid_default_' + Date.now();
+  }
+};
+
 export const AcademicChatbot: React.FC = () => {
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [cloudSynced, setCloudSynced] = useState(false);
+  const sessionId = useRef<string>(getOrCreateSessionId());
 
   const getInitialMessages = (): ChatMessage[] => {
     try {
@@ -47,7 +62,37 @@ export const AcademicChatbot: React.FC = () => {
 
   const [messages, setMessages] = useState<ChatMessage[]>(getInitialMessages);
 
-  // Sync chat history to localStorage
+  // Sync with cloud database on load or user change
+  useEffect(() => {
+    let isMounted = true;
+    const loadCloudHistory = async () => {
+      try {
+        const res = await api.get('/ai/academic-assistant/history', {
+          params: { session_id: sessionId.current }
+        });
+        if (isMounted && Array.isArray(res.data) && res.data.length > 0) {
+          const cloudMessages: ChatMessage[] = res.data.map((m: any) => ({
+            id: m.id || `cloud-${Date.now()}-${Math.random()}`,
+            sender: m.sender === 'user' ? 'user' : 'assistant',
+            text: m.text,
+            timestamp: m.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }));
+          setMessages(cloudMessages);
+          setCloudSynced(true);
+          try {
+            localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(cloudMessages));
+          } catch (e) {}
+        }
+      } catch (err) {
+        console.warn("Could not sync cloud history, using local cache:", err);
+      }
+    };
+
+    loadCloudHistory();
+    return () => { isMounted = false; };
+  }, [user]);
+
+  // Sync chat history to localStorage as local cache
   useEffect(() => {
     try {
       if (messages.length > 0) {
@@ -70,15 +115,19 @@ export const AcademicChatbot: React.FC = () => {
     }
   }, [messages, isOpen]);
 
-  const handleClearChat = () => {
+  const handleClearChat = async () => {
     try {
       localStorage.removeItem(CHAT_STORAGE_KEY);
+      await api.delete('/ai/academic-assistant/history', {
+        params: { session_id: sessionId.current }
+      }).catch(() => {});
     } catch (e) {}
+
     setMessages([
       {
         id: `welcome-${Date.now()}`,
         sender: 'assistant',
-        text: `🧹 **Chat history cleared!**\n\nHi ${user?.full_name || 'there'}, feel free to ask about syllabus topics, project guidelines, or dynamic pricing.`,
+        text: `🧹 **Chat history cleared from cloud & local storage!**\n\nHi ${user?.full_name || 'there'}, feel free to ask about syllabus topics, project guidelines, or dynamic pricing.`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       }
     ]);
@@ -107,9 +156,10 @@ export const AcademicChatbot: React.FC = () => {
     }));
 
     try {
-      // Call Academic Assistant endpoint with multi-turn history
+      // Call Academic Assistant endpoint with session_id & history to persist in cloud DB
       const res = await api.post('/ai/academic-assistant', {
         message: query,
+        session_id: sessionId.current,
         history: historyPayload,
         student_type: user?.student_type || 'college',
         context: {
@@ -122,12 +172,14 @@ export const AcademicChatbot: React.FC = () => {
         // Fallback endpoint if route alias differs
         return await api.post('/orders/ai/academic-assistant', {
           message: query,
+          session_id: sessionId.current,
           history: historyPayload,
           student_type: user?.student_type || 'college',
         });
       });
 
       const replyText = res.data?.reply || res.data?.response || "I've reviewed your academic request! Please check our Project Wizard for instant syllabus plan customization.";
+      setCloudSynced(true);
 
       setMessages(prev => [
         ...prev,
@@ -207,7 +259,14 @@ export const AcademicChatbot: React.FC = () => {
                   Academic AI Assistant
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                 </h3>
-                <p className="text-[11px] text-indigo-100 font-medium">Syllabus • Pricing • Project Scope</p>
+                <div className="flex items-center gap-1.5 text-[11px] text-indigo-100 font-medium">
+                  <span>Syllabus • Pricing • Scope</span>
+                  <span className="text-white/30">•</span>
+                  <span className="inline-flex items-center gap-1 text-[10px] text-emerald-200 font-bold bg-white/10 px-1.5 py-0.5 rounded-md backdrop-blur-xs" title="Chat messages are persisted in cloud database">
+                    <Cloud className="w-2.5 h-2.5 text-emerald-300" />
+                    <span>Cloud Synced</span>
+                  </span>
+                </div>
               </div>
             </div>
 

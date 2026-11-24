@@ -10,6 +10,7 @@ from app.models.payment_submission import PaymentSubmission
 from app.models.walkthrough_session import WalkthroughSession
 from app.models.gig import Gig
 from app.models.referral import ReferralRecord, WalletTransaction, ReferralProgramConfig
+from app.models.academic_chat import AcademicChatMessage
 
 __all__ = [
     "User",
@@ -28,4 +29,5 @@ __all__ = [
     "ReferralRecord",
     "WalletTransaction",
     "ReferralProgramConfig",
+    "AcademicChatMessage",
 ]

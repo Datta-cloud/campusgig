@@ -2,19 +2,20 @@ import os
 import json
 from datetime import datetime
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from typing import Optional, List
+from fastapi import FastAPI, Depends, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from sqlalchemy import text
-from app.database import engine, SessionLocal
+from sqlalchemy.orm import Session
+from app.database import engine, SessionLocal, get_db, Base
 from app.models import (
     User, PricingConfig, Order, ChatMessage, OrderAttachment, Course,
     CourseEnrollment, PaymentSubmission, WalkthroughSession, Gig,
-    ReferralRecord, WalletTransaction, ReferralProgramConfig
+    ReferralRecord, WalletTransaction, ReferralProgramConfig, AcademicChatMessage
 )
-from app.database import Base
-from app.services.auth_service import hash_password
+from app.services.auth_service import hash_password, get_current_user_optional
 from app.config import UPLOAD_DIR, UPLOAD_DIR_REFERENCES, UPLOAD_DIR_THUMBNAILS, CORS_ALLOWED_ORIGINS, DATABASE_URL
 from app.services.storage_service import get_storage_provider_name
 
@@ -721,19 +722,127 @@ def public_verify_cert(cert_id: str):
         db.close()
 
 
+@app.get("/api/ai/academic-assistant/history")
+def get_academic_assistant_history(
+    session_id: Optional[str] = Query(None),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """
+    Fetch cloud database persisted academic chatbot history for student.
+    """
+    query = db.query(AcademicChatMessage)
+    if current_user:
+        if session_id:
+            # Associate any prior anonymous session messages with logged-in user
+            db.query(AcademicChatMessage).filter(
+                AcademicChatMessage.session_id == session_id,
+                AcademicChatMessage.user_id == None
+            ).update({AcademicChatMessage.user_id: current_user.id})
+            db.commit()
+        query = query.filter(AcademicChatMessage.user_id == current_user.id)
+    elif session_id:
+        query = query.filter(AcademicChatMessage.session_id == session_id)
+    else:
+        return []
+
+    records = query.order_by(AcademicChatMessage.created_at.asc()).limit(60).all()
+    return [
+        {
+            "id": f"cloud-{r.id}",
+            "sender": r.role,
+            "text": r.content,
+            "timestamp": r.created_at.strftime("%I:%M %p") if r.created_at else ""
+        }
+        for r in records
+    ]
+
+
 @app.post("/api/ai/academic-assistant")
-def global_academic_assistant(req: dict):
+def global_academic_assistant(
+    req: dict,
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
     from app.services.ai_service import ask_academic_assistant
-    from fastapi import HTTPException
     message = (req.get("message") or "").strip()
     if not message:
         raise HTTPException(status_code=400, detail="Message cannot be empty")
-    return ask_academic_assistant(
-        message,
-        req.get("student_type", "college"),
-        req.get("context"),
-        history=req.get("history")
+
+    session_id = req.get("session_id")
+    student_type = req.get("student_type", "college")
+    context = req.get("context")
+    history = req.get("history")
+
+    # 1. Save student prompt to Cloud Database
+    user_record = AcademicChatMessage(
+        user_id=current_user.id if current_user else None,
+        session_id=session_id,
+        role="user",
+        content=message,
+        student_type=student_type
     )
+    db.add(user_record)
+    db.commit()
+
+    # 2. Build multi-turn context from cloud database if history not passed
+    if not history or not isinstance(history, list) or len(history) == 0:
+        query = db.query(AcademicChatMessage)
+        if current_user:
+            query = query.filter(AcademicChatMessage.user_id == current_user.id)
+        elif session_id:
+            query = query.filter(AcademicChatMessage.session_id == session_id)
+        prev_msgs = query.filter(AcademicChatMessage.id != user_record.id).order_by(AcademicChatMessage.created_at.desc()).limit(8).all()
+        prev_msgs.reverse()
+        history = [{"role": "user" if m.role == "user" else "model", "text": m.content} for m in prev_msgs]
+
+    # 3. Call AI service with context & history
+    ai_result = ask_academic_assistant(
+        message,
+        student_type=student_type,
+        context=context,
+        history=history
+    )
+
+    reply_text = ai_result.get("reply") or ""
+
+    # 4. Save AI reply to Cloud Database
+    ai_record = AcademicChatMessage(
+        user_id=current_user.id if current_user else None,
+        session_id=session_id,
+        role="assistant",
+        content=reply_text,
+        student_type=student_type
+    )
+    db.add(ai_record)
+    db.commit()
+
+    return {
+        "reply": reply_text,
+        "source": ai_result.get("source", "gemini"),
+        "model": ai_result.get("model", "gemini-2.5-flash"),
+        "user_message_id": user_record.id,
+        "assistant_message_id": ai_record.id,
+        "saved_to_cloud": True
+    }
+
+
+@app.delete("/api/ai/academic-assistant/history")
+def clear_academic_assistant_history(
+    session_id: Optional[str] = Query(None),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """
+    Clear cloud-stored academic chat history for the student.
+    """
+    deleted_count = 0
+    if current_user:
+        deleted_count += db.query(AcademicChatMessage).filter(AcademicChatMessage.user_id == current_user.id).delete()
+    if session_id:
+        deleted_count += db.query(AcademicChatMessage).filter(AcademicChatMessage.session_id == session_id).delete()
+    db.commit()
+    return {"message": "Academic chat history cleared from cloud database", "deleted_count": deleted_count}
 
 
 @app.get("/api/public/platform-stats")
