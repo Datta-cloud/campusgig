@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Code2, Brain, Sparkles, Layout, Server, Layers, Smartphone, BarChart3,
   BookOpen, Clock, CheckCircle2, ChevronRight, ChevronLeft, ArrowRight,
@@ -7,6 +7,21 @@ import {
 } from 'lucide-react';
 import api, { getErrorMessage } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+
+const SCHOOL_MATH_CHAPTERS = [
+  { title: 'Similarity & Parallel Lines (Thales Theorem)', req: 'Include Basic Proportionality Theorem (Thales), Converse of BPT, AAA/SAS/SSS criteria, geometric diagrams with Given/To Prove, and 15 solved exemplar problems.' },
+  { title: 'Linear Equations in Two Variables', req: 'Algebraic methods (elimination & substitution), graphical solution, consistency conditions, and 10 word problems.' },
+  { title: 'Quadratic Equations & Roots', req: 'Standard form, factorization, quadratic formula method, nature of discriminant roots, and board exemplar questions.' },
+  { title: 'Arithmetic Progressions (AP)', req: 'Formula for nth term, sum of first n terms, rapid formulas sheet, and standard board exam word problems.' },
+  { title: 'Circles & Tangents', req: 'Theorems on tangent perpendicular to radius and lengths of tangents from external point, with labeled geometric figures.' },
+];
+
+const SCHOOL_SCIENCE_CHAPTERS = [
+  { title: 'Light: Reflection and Refraction', req: 'Spherical mirrors, ray diagrams, mirror formula, refractive index, lens formula, and solved numerical questions.' },
+  { title: 'Chemical Reactions and Equations', req: 'Types of reactions (combination, decomposition, displacement, redox), balancing equations, and oxidation in daily life.' },
+  { title: 'Life Processes (Biology)', req: 'Nutrition, respiration, transportation in plants and human circulatory system, and neat hand-drawn digestive system diagram.' },
+  { title: 'Electricity & Ohm’s Law', req: 'Electric potential, Ohm’s Law V=IR, series and parallel circuits, heating effect, and numerical practice.' },
+];
 
 const COLLEGE_DOMAINS = [
   { id: 'college_ml', name: 'Machine Learning', icon: Brain, desc: 'Classification, Regression, CNN, Predictive models', example: 'i.e., "Crop Recommendation System using Soil NPK values & Random Forest"' },
@@ -241,28 +256,43 @@ const getDomainFallbackScope = (title: string, domainId: string): AiScopeData =>
 
 export const OrderWizard: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [refiningAi, setRefiningAi] = useState(false);
   const [customPrompt, setCustomPrompt] = useState('');
 
-  // Form State - Autofilled from user profile if available
+  // Form State - Autofilled from user profile or navigation state
   const [studentType, setStudentType] = useState<'college' | 'school'>('college');
   const [categoryKey, setCategoryKey] = useState('college_ml');
   const [schoolClass, setSchoolClass] = useState('Class 10th (Board Prep)');
-  const [schoolSubject, setSchoolSubject] = useState('Science & Physics');
-  const [pageCount, setPageCount] = useState(10);
+  const [schoolSubject, setSchoolSubject] = useState('Mathematics');
+  const [pageCount, setPageCount] = useState(15);
 
-  // Autofill student type and class on load
+  // Autofill from navigation state (e.g. from Landing Page Gig Card) or user profile
   useEffect(() => {
-    if (user?.student_type) {
+    const locState = location.state as { category?: string; stream?: 'school' | 'college' } | null;
+    if (locState?.stream) {
+      setStudentType(locState.stream);
+      if (locState.stream === 'school') {
+        setCategoryKey('school_assignment');
+        if (locState.category === 'gig_school_math') {
+          setSchoolSubject('Mathematics');
+          setSchoolClass('Class 10th (Board Prep)');
+          setProjectTitle('Similarity and Parallel Lines Board Notes & Formulas');
+          setDescription('Include Basic Proportionality Theorem (Thales), Converse of BPT, AAA/SAS/SSS criteria, geometric diagrams with Given/To Prove, and 15 solved exemplar problems.');
+        }
+      } else if (locState.category) {
+        setCategoryKey(locState.category);
+      }
+    } else if (user?.student_type) {
       setStudentType(user.student_type as 'college' | 'school');
       if (user.student_type === 'school' && user.school_class) {
         setSchoolClass(user.school_class);
       }
     }
-  }, [user]);
+  }, [user, location.state]);
 
   const [projectTitle, setProjectTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -720,6 +750,50 @@ export const OrderWizard: React.FC = () => {
           <div className="space-y-6 animate-fade-in">
             <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-sm space-y-6">
               
+              {/* AI Syllabus Agent for School Curriculum */}
+              {studentType === 'school' && (
+                <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-cyan-50 border border-emerald-200 rounded-2xl p-4 sm:p-5 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                        <Sparkles className="w-4 h-4 animate-pulse" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-sm text-slate-900">
+                          AI Syllabus Agent: {schoolClass} • {schoolSubject}
+                        </h4>
+                        <p className="text-[11px] text-emerald-800">
+                          Curriculum matched to NCERT, CBSE, and State Board standards
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-xs font-bold text-emerald-800 bg-emerald-100/90 px-3 py-1 rounded-full w-fit">
+                      100% School Syllabus Aligned
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-slate-600">
+                    💡 Click a high-frequency curriculum chapter to auto-fill exam-focused assignment scope:
+                  </p>
+
+                  <div className="flex flex-wrap gap-2">
+                    {(schoolSubject.includes('Math') ? SCHOOL_MATH_CHAPTERS : SCHOOL_SCIENCE_CHAPTERS).map((ch, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          setProjectTitle(ch.title);
+                          setDescription(ch.req);
+                        }}
+                        className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-white border border-emerald-300 text-emerald-900 hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
+                      >
+                        {ch.title}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Project Title with Guided Example */}
               <div>
                 <label className="block text-sm font-bold text-slate-900 mb-1">
@@ -732,6 +806,8 @@ export const OrderWizard: React.FC = () => {
                   placeholder={
                     studentType === 'college'
                       ? 'e.g., Crop Recommendation System using Soil NPK values'
+                      : schoolSubject.includes('Math')
+                      ? 'e.g., Similarity of Triangles and Parallel Lines (Thales Theorem)'
                       : 'e.g., Solar System and Planetary Motion 10-page Assignment'
                   }
                   className="input-field text-base font-medium"
@@ -741,7 +817,9 @@ export const OrderWizard: React.FC = () => {
                   <span>
                     {studentType === 'college'
                       ? currentDomainExample
-                      : 'i.e., "Solar System Model report with colored illustrations and question answers"'}
+                      : schoolSubject.includes('Math')
+                      ? 'i.e., "NCERT Class 10 Chapter 6 Triangles: Basic Proportionality Theorem, converse proofs, 15 exemplar questions, and formula cheat sheet"'
+                      : 'i.e., "Class 10 Physics: Reflection and Refraction ray diagrams, lens formula with solved numericals"'}
                   </span>
                 </p>
               </div>
@@ -758,7 +836,9 @@ export const OrderWizard: React.FC = () => {
                   placeholder={
                     studentType === 'college'
                       ? 'i.e., "User enters Nitrogen, Phosphorus, Potassium values. System uses Random Forest classifier to recommend the best crop. I want an interactive web UI with charts and high accuracy."'
-                      : 'i.e., "Include 8 planets with their distance from sun, neat diagram sketches, typed font, and 5 quiz questions at the end."'
+                      : schoolSubject.includes('Math')
+                      ? 'i.e., "Include Thales Theorem statement with Given/To-Prove/Construction/Proof steps, converse of BPT, AAA/SAS similarity criteria, neat geometric diagrams, and step-by-step solved exemplar questions."'
+                      : 'i.e., "Include ray diagrams for concave and convex mirrors, derivation of mirror formula, sign conventions, and 5 board exam numerical problems with step markings."'
                   }
                   className="input-field text-sm"
                 />
@@ -887,6 +967,31 @@ export const OrderWizard: React.FC = () => {
                       </label>
                     );
                   })}
+                </div>
+              </div>
+
+              {/* Dynamic Pricing Agent Breakdown Box */}
+              <div className="bg-gradient-to-r from-slate-50 to-indigo-50/40 border border-slate-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-brand-700 uppercase tracking-wider bg-brand-50 px-2.5 py-0.5 rounded border border-brand-200">
+                      AI Dynamic Pricing Breakdown
+                    </span>
+                    <span className="text-xs text-slate-500 font-medium">Verified Academic Rates</span>
+                  </div>
+                  <p className="text-sm font-semibold text-slate-900">
+                    {studentType === 'school' ? `Base Assignment (${pageCount} Pages × ₹50)` : 'Base College Project'} = ₹{pricing.base_price}
+                    {pricing.addons_total > 0 && ` + Add-ons: ₹${pricing.addons_total}`}
+                    {pricing.urgency_fee > 0 && ` + Speed fee: ₹${pricing.urgency_fee}`}
+                  </p>
+                  <p className="text-xs text-emerald-700 font-medium flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>30% Advance Escrow: ₹{pricing.advance} to begin work • 70% Balance (₹{pricing.balance}) payable only after your review.</span>
+                  </p>
+                </div>
+                <div className="sm:text-right shrink-0 bg-white sm:bg-transparent p-3 sm:p-0 rounded-xl border sm:border-0 border-slate-200">
+                  <span className="text-2xl font-black text-slate-900">₹{pricing.total}</span>
+                  <span className="text-xs text-slate-500 block">Total Calculated Cost</span>
                 </div>
               </div>
 
