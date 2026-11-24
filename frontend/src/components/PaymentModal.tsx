@@ -485,6 +485,44 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 <strong>Anti-Fraud Protection:</strong> Submitted UTRs are verified against bank receipts. Orders with fake, incomplete, or duplicate UTRs are rejected by the system.
               </span>
             </div>
+
+            {user?.role === 'admin' && (
+              <div className="pt-2 border-t border-dashed border-amber-300">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (submitting) return;
+                    setSubmitting(true);
+                    try {
+                      // Generate 12 numeric digits for backend compatibility
+                      const adminUtr = `${Date.now()}`.slice(-12);
+                      if (paymentType === 'advance') {
+                        await api.put(`/orders/${orderId}/confirm-payment`, {
+                          payment_method: 'upi',
+                          utr_number: adminUtr,
+                        });
+                      } else {
+                        await api.post(`/orders/${orderId}/pay-balance`, {
+                          amount: currentPayAmount,
+                          payment_method: 'upi',
+                          utr_number: adminUtr,
+                        });
+                      }
+                      alert('⚡ Admin Instant Settle successful! Payment recorded and verified.');
+                      onSuccess();
+                      onClose();
+                    } catch (err: any) {
+                      alert(getErrorMessage(err, 'Admin settle failed'));
+                    } finally {
+                      setSubmitting(false);
+                    }
+                  }}
+                  className="w-full py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center justify-center gap-1.5 transition-all"
+                >
+                  <Zap className="w-4 h-4 text-amber-300" /> Admin Instant Verify & Settle (1-Click)
+                </button>
+              </div>
+            )}
           </form>
 
         </div>

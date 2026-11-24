@@ -102,7 +102,14 @@ DEFAULT_PRICING = [
         "student_type": "school",
         "base_price": 50,
         "unit_description": "Per Page (min 10 pages)",
-        "add_ons": {"chart_design": 150, "express": 100}
+        "add_ons": {
+            "chart_diagrams": 150,
+            "chart_design": 150,
+            "solved_questions": 100,
+            "formula_sheet": 100,
+            "concept_call": 250,
+            "express": 150
+        }
     },
     {
         "category_key": "school_project",
@@ -162,6 +169,8 @@ def seed_database():
             else:
                 if item["category_key"] == "college_ml":
                     existing.base_price = 1500.0
+                elif item["category_key"] == "school_assignment":
+                    existing.add_ons_json = json.dumps(item["add_ons"])
 
         db.commit()
         print("✓ Pricing configs and admin verified")
@@ -442,6 +451,16 @@ def public_verify_cert(cert_id: str):
         }
     finally:
         db.close()
+
+
+@app.post("/api/ai/academic-assistant")
+def global_academic_assistant(req: dict):
+    from app.services.ai_service import ask_academic_assistant
+    from fastapi import HTTPException
+    message = (req.get("message") or "").strip()
+    if not message:
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+    return ask_academic_assistant(message, req.get("student_type", "college"), req.get("context"))
 
 
 

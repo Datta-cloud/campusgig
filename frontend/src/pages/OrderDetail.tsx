@@ -257,7 +257,7 @@ export const OrderDetail: React.FC = () => {
                 <Clock className="w-4 h-4 text-amber-600 animate-pulse" /> Balance Verification Underway (₹{order.balance_amount} Due)
               </button>
             ) : (
-              order.status !== 'pending_payment' && order.balance_amount > 0 && (
+              order.status !== 'pending_payment' && order.status !== 'completed' && order.balance_amount > 0 && (
                 <button
                   type="button"
                   onClick={() => {
@@ -271,9 +271,9 @@ export const OrderDetail: React.FC = () => {
               )
             )}
 
-            {order.status !== 'pending_payment' && order.balance_amount <= 0 && (
+            {(order.status === 'completed' || (order.status !== 'pending_payment' && order.balance_amount <= 0)) && (
               <span className="px-3.5 py-2 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-xl border border-emerald-200 flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Fully Paid (₹0 Balance)
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Fully Settled & Completed
               </span>
             )}
           </div>

@@ -17,6 +17,7 @@ import AdminStudents from './pages/AdminStudents';
 import Navbar from './components/Navbar';
 import AdminSidebar from './components/AdminSidebar';
 import LoadingSpinner from './components/LoadingSpinner';
+import AcademicChatbot from './components/AcademicChatbot';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean }> = ({
   children,
@@ -194,6 +195,7 @@ export const App: React.FC = () => {
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          <AcademicChatbot />
         </AppLayout>
       </BrowserRouter>
     </AuthProvider>

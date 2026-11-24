@@ -200,29 +200,144 @@ def _get_fallback(domain: str, project_title: str, deliverables: List[str]) -> d
     return base
 
 
+def _get_school_fallback(domain: str, project_title: str, school_class: Optional[str] = None, page_count: Optional[int] = None) -> dict:
+    cls = school_class or "Class 10th (Board Prep)"
+    title = project_title.strip() if project_title else f"{cls} {domain} Assignment"
+    pages = page_count or 15
+
+    lower_text = f"{domain} {title}".lower()
+    is_math = any(k in lower_text for k in ["math", "geometry", "algebra", "similarity", "triangle", "parallel", "line", "theorem", "circle", "trigonometry", "surface", "volume", "quadratic", "polynomial"])
+    is_science = any(k in lower_text for k in ["science", "physics", "chem", "bio", "light", "electricity", "carbon", "reaction", "acid", "cell", "energy", "reproduction"])
+
+    if is_math:
+        return {
+            "refined_title": f"{cls} Mathematics: {title} - Complete Syllabus & Theorem Notes",
+            "tech_stack": [
+                "Basic Proportionality Theorem (Thales Theorem & Converse)",
+                "Criteria for Similarity of Triangles (AAA, SSS, SAS)",
+                "Parallel Lines & Transversal Intercept Properties",
+                "15+ Solved Board Exemplar & NCERT Exercise Problems",
+                "Step-by-Step Marking Scheme & Geometric Constructions"
+            ],
+            "deliverables_detail": [
+                f"Complete {pages}-Page Structured Notes PDF (Printable A4 format)",
+                "Neat Geometric Diagrams & Theorem Constructions with Statements & Reasons",
+                "15+ Step-by-Step Solved Board Exam Questions",
+                "Formula Cheat Sheet & Quick-Revision Theorem Card"
+            ],
+            "timeline_days": 2,
+            "methodology": "CBSE / State Board Curriculum-Aligned Theorem Proofs & Pedagogical Problem Solving",
+            "suggested_improvements": [
+                "Include 5 High Order Thinking Skills (HOTS) questions for 100% board prep",
+                "Add diagrammatic step-by-step constructions with given & to-prove layout",
+                "Include common board exam errors and mistake-prevention tips"
+            ]
+        }
+    elif is_science:
+        return {
+            "refined_title": f"{cls} Science: {title} - Structured Project & Conceptual Notes",
+            "tech_stack": [
+                "Core Concept Explanations with Real-World Scientific Principles",
+                "Neat Labeled Scientific Diagrams & Experimental Setups",
+                "Chemical Reactions / Physics Laws & Mathematical Derivations",
+                "NCERT & Board Pattern Model Q&A with Explanations"
+            ],
+            "deliverables_detail": [
+                f"Comprehensive {pages}-Page Science Report & Notes PDF",
+                "High-Resolution Scientific Illustrations & Charts",
+                "Solved Concept Questions & Viva/Quiz Prep Sheet",
+                "Summary Revision Table with Key Definitions"
+            ],
+            "timeline_days": 2,
+            "methodology": "Empirical Scientific Inquiry & Board Marking Scheme Alignment",
+            "suggested_improvements": [
+                "Add lab activity observation tables",
+                "Include application-based daily life case studies",
+                "Add quick-revision chemical formula / law flashcards"
+            ]
+        }
+    else:
+        return {
+            "refined_title": f"{cls} {domain}: {title} - Academic Notes & Solutions",
+            "tech_stack": [
+                "Chapter Syllabus Outline & Key Learning Objectives",
+                "Detailed Conceptual Analysis & Thematic Summaries",
+                "Analytical Question-Answers & Case Studies",
+                "Quick Revision Summary & Important Dates/Glossary"
+            ],
+            "deliverables_detail": [
+                f"High-Yield {pages}-Page Assignment Document (Printable PDF)",
+                "Neat Maps, Timelines & Graphic Organizers",
+                "Model Answers formatted for Full Board Marks",
+                "Important Definitions & Revision Flashcard Sheet"
+            ],
+            "timeline_days": 2,
+            "methodology": "Structured Curriculum-Centric Pedagogy & Scoring Points",
+            "suggested_improvements": [
+                "Include point-wise summary for quick revision before exams",
+                "Add previous years board exam question trends"
+            ]
+        }
+
+
 def refine_project_scope(
     project_title: str,
     domain: str,
     deliverables: List[str],
     student_type: str,
-    notes: Optional[str] = None
+    notes: Optional[str] = None,
+    school_class: Optional[str] = None,
+    page_count: Optional[int] = None
 ) -> dict:
     """
-    Use Gemini AI to refine and structure project scope.
-    Falls back to hardcoded domain-specific responses if API key is not set.
+    Use Gemini AI to refine and structure project or school assignment scope.
+    Falls back to rich domain/school-specific responses if API key is not set or times out.
     """
-    if not GEMINI_API_KEY:
-        return _get_fallback(domain, project_title, deliverables)
+    if student_type == "school":
+        if not GEMINI_API_KEY:
+            return _get_school_fallback(domain, project_title, school_class, page_count)
+    else:
+        if not GEMINI_API_KEY:
+            return _get_fallback(domain, project_title, deliverables)
 
     try:
         import google.genai as genai
 
         client = genai.Client(api_key=GEMINI_API_KEY)
+        deliverables_str = ", ".join(deliverables) if deliverables else ("notes_pdf" if student_type == "school" else "code")
 
-        deliverables_str = ", ".join(deliverables) if deliverables else "code"
-        student_level = "school student (class 6-12)" if student_type == "school" else "college student (BTech/BCA/MCA)"
+        if student_type == "school":
+            cls_info = school_class or "Class 10th (Board Prep)"
+            pages = page_count or 15
+            prompt = f"""You are an expert CBSE, ICSE and State Board Academic Curriculum Specialist & Senior Teacher helping a school student in {cls_info}.
 
-        prompt = f"""You are a senior software architect helping a {student_level} with their project.
+Subject: {domain}
+Topic / Homework Assignment: {project_title}
+Target Page Count: {pages} Pages
+Deliverables Requested: {deliverables_str}
+Teacher / Student Notes: {notes or 'Standard board syllabus alignment'}
+
+TASK:
+1. Accurately identify the exact Board Syllabus Chapter and concepts (e.g. for Class 10th Math, 'Similarity & Parallel Lines' maps to Chapter: Triangles - Basic Proportionality Theorem / Thales Theorem, Criteria of Similarity AAA, SSS, SAS, and Area of Similar Triangles).
+2. Create an exceptional, comprehensive academic assignment plan.
+3. In "tech_stack", list 4-6 key SYLLABUS TOPICS, THEOREMS, or CHAPTER CONCEPTS (DO NOT list programming languages, frameworks, or software tools!).
+4. In "deliverables_detail", list 4-5 high-quality academic deliverables (e.g. {pages}-Page Typed Notes PDF with step-by-step theorem proofs, neat labeled geometric diagrams, 15+ solved exemplar problems with marking scheme, formula summary sheet).
+5. In "methodology", describe the pedagogical and board exam scoring approach (e.g. 'NCERT / Board Syllabus Master Framework with Theorem Proofs & Exemplar Problem Solving').
+6. In "suggested_improvements", provide 3-4 top academic tips for maximum exam marks (e.g. 'Include step-by-step reason statements for every theorem line', 'Add 5 High Order Thinking Skills (HOTS) questions').
+
+Provide your response in JSON format with these exact keys:
+{{
+  "refined_title": "{cls_info} {domain}: {project_title} - Comprehensive Syllabus Notes & Solutions",
+  "tech_stack": ["Key Concept 1", "Key Concept 2", "Key Concept 3", "Key Concept 4"],
+  "deliverables_detail": ["deliverable 1", "deliverable 2", "deliverable 3"],
+  "timeline_days": 2,
+  "methodology": "methodology description",
+  "suggested_improvements": ["tip 1", "tip 2", "tip 3"]
+}}
+Respond ONLY with the JSON object, no markdown code fence, no text outside JSON."""
+
+        else:
+            prompt = f"""You are a senior software architect helping a college student (BTech/BCA/MCA) with their capstone project.
 
 Project Title: {project_title}
 Domain: {domain}
@@ -234,7 +349,7 @@ Provide a structured project scope in JSON format with these exact fields:
   "refined_title": "improved project title",
   "tech_stack": ["technology1", "technology2", ...],
   "deliverables_detail": ["detailed deliverable 1", "detailed deliverable 2", ...],
-  "timeline_days": <number of days as integer>,
+  "timeline_days": 7,
   "methodology": "development methodology description",
   "suggested_improvements": ["improvement 1", "improvement 2", ...]
 }}
@@ -248,17 +363,15 @@ Respond with ONLY the JSON object, no markdown, no explanation."""
                 model=GEMINI_MODEL,
                 contents=prompt
             )
-            response = future.result(timeout=3.5)
+            response = future.result(timeout=4.0)
 
         text = response.text.strip()
-        # Strip markdown code blocks if present
         if text.startswith("```"):
             lines = text.split("\n")
             text = "\n".join(lines[1:-1]) if lines[-1] == "```" else "\n".join(lines[1:])
 
         result = json.loads(text)
 
-        # Validate required fields
         required_fields = ["refined_title", "tech_stack", "deliverables_detail", "timeline_days", "methodology", "suggested_improvements"]
         for field in required_fields:
             if field not in result:
@@ -268,7 +381,89 @@ Respond with ONLY the JSON object, no markdown, no explanation."""
 
     except Exception as e:
         print(f"AI scope refinement failed: {e}, using fallback")
+        if student_type == "school":
+            return _get_school_fallback(domain, project_title, school_class, page_count)
         return _get_fallback(domain, project_title, deliverables)
+
+
+def ask_academic_assistant(
+    message: str,
+    student_type: str = "college",
+    context: Optional[dict] = None
+) -> dict:
+    """
+    Omnipresent Academic Advisor AI Chatbot for students across all pages.
+    Answers curriculum, syllabus, pricing, project ideas, and study doubts.
+    """
+    clean_msg = (message or "").strip()
+    if not clean_msg:
+        return {"reply": "Hello! How can I assist you with your academics, syllabus, or project today?"}
+
+    if GEMINI_API_KEY:
+        try:
+            import google.genai as genai
+            client = genai.Client(api_key=GEMINI_API_KEY)
+
+            system_instruction = f"""You are CampusGig's Friendly AI Academic Advisor & Student Success Mentor.
+The user is a {'school student (Class 1-10)' if student_type == 'school' else 'college/degree student (Engineering, BCA, MCA)'}.
+Context: {json.dumps(context or {})}
+
+Your objectives:
+1. If the student asks about a school topic (e.g. Class 10 Math similarity, BPT theorem, Science topics): provide a crystal-clear, syllabus-aligned explanation (NCERT/CBSE/State Board), give step-by-step guidance, and explain how CampusGig mentors deliver customized notes and solutions.
+2. If asked about pricing: Explain transparently. School assignments start at ₹50/page (min 10 pages) with only 30% advance required to start, balance on completion. College projects start at transparent rates (e.g. ML at ₹1,500 base) with 30% advance and 70% balance.
+3. If asked about project ideas: Suggest high-scoring, impressive topics with clear deliverable blueprints.
+4. Keep answers motivating, student-friendly, and concise (under 180 words unless a detailed proof is requested). Use bullet points and emoji where helpful."""
+
+            response = client.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=f"{system_instruction}\n\nStudent: {clean_msg}\nAI Advisor:"
+            )
+            return {"reply": response.text.strip(), "source": "gemini"}
+        except Exception as e:
+            print(f"Gemini academic assistant chat failed: {e}, using keyword fallback")
+
+    # Smart Keyword Fallback
+    lower_query = clean_msg.lower()
+    if any(k in lower_query for k in ["similarity", "parallel", "triangle", "thales", "bpt", "10th math"]):
+        reply = (
+            "📐 **Class 10th Math - Similarity & Parallel Lines (Chapter 6: Triangles):**\n\n"
+            "Key topics included in our notes:\n"
+            "1. **Basic Proportionality Theorem (BPT / Thales Theorem):** Line parallel to one side of a triangle divides the other two sides in the same ratio ($AD/DB = AE/EC$).\n"
+            "2. **Converse of BPT:** If a line divides any two sides in the same ratio, it is parallel to the third side.\n"
+            "3. **Similarity Criteria:** AAA, SSS, and SAS criteria with step-by-step geometric proofs.\n"
+            "4. **Deliverables:** Typed 15-page notes PDF, geometric diagrams with Given/To-Prove, and 15+ solved board questions!"
+        )
+    elif any(k in lower_query for k in ["price", "cost", "pricing", "fees", "advance", "balance"]):
+        if student_type == "school":
+            reply = (
+                "💰 **School Assignment Pricing:**\n"
+                "• **Base Rate:** ₹50 per page (e.g., 10 pages = ₹500, 15 pages = ₹750).\n"
+                "• **Optional Add-ons:** Neat Diagrams (+₹150), Solved Question Bank (+₹100), Formula Sheet (+₹100).\n"
+                "• **Payment:** Only **30% advance** to book and start work. Remaining **70% balance** is paid only after mentor delivers and you review!"
+            )
+        else:
+            reply = (
+                "💰 **Transparent College Project Pricing:**\n"
+                "• **Machine Learning:** ₹1,500 base price (Core code + setup guide).\n"
+                "• **Add-ons:** IEEE Report (+₹500), PPT Deck (+₹350), Viva Guide (+₹300), 1-on-1 Walkthrough (+₹400).\n"
+                "• **Payment:** Only **30% advance** to start; 70% balance upon final review!"
+            )
+    elif any(k in lower_query for k in ["hello", "hi", "hey"]):
+        if student_type == "school":
+            reply = "👋 Hi there! I'm your School Academic Advisor. How can I help with your homework, Class 10th Math/Science syllabus, or notes today?"
+        else:
+            reply = "👋 Hello! I'm your Academic Mentor. How can I assist you with your capstone project, coding implementation, or research paper?"
+    else:
+        reply = (
+            "✨ I'm here to help you ace your academics! You can ask me about:\n"
+            "• Class 10th Math & Science syllabus breakdowns\n"
+            "• Project topic recommendations & IEEE paper structure\n"
+            "• Transparent price calculations & 30% advance payment\n"
+            "• 1-on-1 mentor guidance & homework solutions"
+        )
+
+    return {"reply": reply, "source": "fallback"}
+
 
 
 DOMAIN_VIVA_QUESTIONS = {

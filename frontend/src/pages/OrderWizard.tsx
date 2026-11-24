@@ -22,6 +22,82 @@ const COLLEGE_DOMAINS = [
 const SCHOOL_SUBJECTS = ['Science & Physics', 'Computer Science & Coding', 'Social Science & History', 'Mathematics', 'Environmental Studies (EVS)', 'English Literature'];
 const SCHOOL_CLASSES = ['Class 1st to 5th (Primary)', 'Class 6th', 'Class 7th', 'Class 8th', 'Class 9th', 'Class 10th (Board Prep)'];
 
+const SCHOOL_ADDONS = [
+  {
+    id: 'notes_pdf',
+    name: 'Typed Structured Notes & Assignment PDF',
+    desc: 'High-yield theoretical notes, theorem proofs, and neatly formatted printable PDF',
+    priceLabel: 'Included',
+    isIncluded: true,
+  },
+  {
+    id: 'chart_diagrams',
+    name: 'Geometric Figures, Diagrams & Chart Design',
+    desc: 'Neat geometric constructions, angle markings & printable chart illustrations',
+    priceLabel: '+₹150',
+    isIncluded: false,
+  },
+  {
+    id: 'solved_questions',
+    name: 'Step-by-Step Solved Theorem Proofs & Exemplar Questions',
+    desc: '15+ solved textbook & board exemplar questions with full marking-scheme steps',
+    priceLabel: '+₹100',
+    isIncluded: false,
+  },
+  {
+    id: 'formula_sheet',
+    name: 'Formula Cheat Sheet & Quick-Revision Theorem Card',
+    desc: '2-page rapid-revision formula card with all theorems, postulates, and shortcuts',
+    priceLabel: '+₹100',
+    isIncluded: false,
+  },
+  {
+    id: 'concept_call',
+    name: '1-on-1 Concept Doubt Clearing Session (30 Mins)',
+    desc: 'Live interactive video session with top academic mentor to solve doubts and practice',
+    priceLabel: '+₹250',
+    isIncluded: false,
+  },
+];
+
+const COLLEGE_ADDONS = [
+  {
+    id: 'code',
+    name: 'Source Code & Setup Guide',
+    desc: 'Full clean code with README execution steps and environment setup',
+    priceLabel: 'Included',
+    isIncluded: true,
+  },
+  {
+    id: 'report',
+    name: 'Project Report (IEEE Format)',
+    desc: '30-40 pages documentation with architecture diagrams & bibliography',
+    priceLabel: '+₹500',
+    isIncluded: false,
+  },
+  {
+    id: 'ppt',
+    name: 'Presentation PPT Slides',
+    desc: '15-20 professional slides with system architecture diagrams',
+    priceLabel: '+₹350',
+    isIncluded: false,
+  },
+  {
+    id: 'viva_guide',
+    name: 'Viva / Exam Question Guide',
+    desc: 'Top 30 expected viva examiner Q&A with deep conceptual answers',
+    priceLabel: '+₹300',
+    isIncluded: false,
+  },
+  {
+    id: 'walkthrough_call',
+    name: '1-on-1 Code Walkthrough Call',
+    desc: '30-min live Google Meet code walkthrough and question defense',
+    priceLabel: '+₹400',
+    isIncluded: false,
+  },
+];
+
 interface AiScopeData {
   refined_title: string;
   tech_stack: string[];
@@ -30,6 +106,84 @@ interface AiScopeData {
   methodology: string;
   suggested_improvements: string[];
 }
+
+const getSchoolFallbackScope = (
+  title: string,
+  schoolClass: string,
+  schoolSubject: string,
+  pageCount: number
+): AiScopeData => {
+  const cleanTitle = title.trim();
+  const lower = (cleanTitle + ' ' + schoolSubject).toLowerCase();
+
+  let tech_stack = [
+    'NCERT & State Board Aligned (2025-26)',
+    'CBSE Pattern Mark-Distribution',
+    'Step-by-Step Proof Layout',
+    'Printable A4 Format'
+  ];
+  let deliverables_detail = [
+    `${pageCount}-Page High-Yield Structured Notes (Printable PDF)`,
+    'Neat Geometric Diagrams & Figure Illustrations with Clear Labels',
+    '15+ Solved Textbook Exemplar & Previous Year Board Questions',
+    'Rapid Revision Formula Cheat Sheet & Theorem Memory Cards'
+  ];
+  let methodology = 'Concept Breakdown → Theorem Statement → Given/To Prove/Construction → Step-by-Step Proofs → Exemplar Applications';
+  let suggested_improvements = [
+    'Include 5 high-frequency previous 5-year Board Exam questions with step marking',
+    'Add QR codes linking to visual concept walkthrough animations'
+  ];
+
+  if (schoolSubject.includes('Math') || lower.includes('math') || lower.includes('triangle') || lower.includes('similar') || lower.includes('line') || lower.includes('parallel')) {
+    tech_stack = [
+      'Basic Proportionality Theorem (Thales)',
+      'Converse of BPT Theorem',
+      'Similarity Criteria (AAA, SSS, SAS)',
+      'Parallel Lines & Transversals Postulates',
+      'Ratio of Areas of Similar Triangles',
+      'Pythagoras Theorem Connections'
+    ];
+    deliverables_detail = [
+      `${pageCount}-Page Comprehensive ${schoolClass} Mathematics Notes (PDF)`,
+      'High-Precision Geometric Diagrams with Transversal Angle Markings',
+      '15+ Solved Board Exemplar Problems with Step-by-Step Reasons',
+      'Formula & Theorem Cheat Sheet with Quick Mnemonics',
+      'Practice Exercise with 10 Targeted Multiple-Choice & Long-Answer Questions'
+    ];
+    methodology = 'Rigorous Geometric Proofs Framework: Given → To Prove → Construction → Step-by-Step Proof with Euclidean Axioms';
+    suggested_improvements = [
+      'Add step-by-step proofs for converse of Thales theorem',
+      'Include previous year 5-mark board question solutions with common error warnings'
+    ];
+  } else if (schoolSubject.includes('Science') || lower.includes('science') || lower.includes('physics') || lower.includes('chem') || lower.includes('bio')) {
+    tech_stack = [
+      'Core Scientific Principles & Laws',
+      'Well-Labeled High-Res Ray Diagrams & Schematics',
+      'Real-World Applications & Daily Life Examples',
+      'NCERT Intext & Chapter-End Solved Questions'
+    ];
+    deliverables_detail = [
+      `${pageCount}-Page Illustrated Science Theory & Experiment Notes`,
+      'Handcrafted High-Quality Vector Diagrams & Flowcharts',
+      'Solved Numerical Problems with Unit Conversions',
+      'Quick Formula & Key Terms Revision Sheet'
+    ];
+    methodology = 'Scientific Inquiry Model: Definition → Core Laws → Working Principle → Diagrammatic Illustration → Numerical Practice';
+    suggested_improvements = [
+      'Include laboratory experiment setup procedures and observations',
+      'Add mind-maps for 5-minute pre-exam memory recall'
+    ];
+  }
+
+  return {
+    refined_title: cleanTitle ? `${cleanTitle} - ${schoolClass} Master Curriculum Notes` : `${schoolSubject} - ${schoolClass} Academic Notes`,
+    tech_stack,
+    deliverables_detail,
+    timeline_days: 3,
+    methodology,
+    suggested_improvements,
+  };
+};
 
 const getDomainFallbackScope = (title: string, domainId: string): AiScopeData => {
   let tech_stack = ['Python', 'FastAPI', 'React', 'Tailwind CSS'];
@@ -118,7 +272,24 @@ export const OrderWizard: React.FC = () => {
   const [urgency, setUrgency] = useState<'normal' | 'express' | 'super_express'>('normal');
 
   // Add-ons selection
-  const [selectedAddons, setSelectedAddons] = useState<string[]>(['code']);
+  const [selectedAddons, setSelectedAddons] = useState<string[]>(() =>
+    studentType === 'school' ? ['notes_pdf'] : ['code']
+  );
+
+  // Sync selectedAddons when studentType changes
+  useEffect(() => {
+    if (studentType === 'school') {
+      setSelectedAddons(prev => {
+        const cleaned = prev.filter(k => !['code', 'report', 'ppt', 'viva_guide', 'walkthrough_call'].includes(k));
+        return cleaned.includes('notes_pdf') ? cleaned : ['notes_pdf', ...cleaned];
+      });
+    } else {
+      setSelectedAddons(prev => {
+        const cleaned = prev.filter(k => !['notes_pdf', 'chart_diagrams', 'solved_questions', 'formula_sheet', 'concept_call'].includes(k));
+        return cleaned.includes('code') ? cleaned : ['code', ...cleaned];
+      });
+    }
+  }, [studentType]);
 
   // Pricing calculation result
   const [pricing, setPricing] = useState<{
@@ -225,7 +396,7 @@ export const OrderWizard: React.FC = () => {
   }, [categoryKey, selectedAddons, urgency, studentType, pageCount]);
 
   const toggleAddon = (key: string) => {
-    if (key === 'code') return; // Code is always mandatory & free
+    if (key === 'code' || key === 'notes_pdf') return; // Base deliverable is always mandatory & included
     setSelectedAddons(prev =>
       prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
     );
@@ -240,7 +411,9 @@ export const OrderWizard: React.FC = () => {
     setRefiningAi(true);
     setStep(3);
 
-    const fallback = getDomainFallbackScope(projectTitle, categoryKey);
+    const fallback = studentType === 'school'
+      ? getSchoolFallbackScope(projectTitle, schoolClass, schoolSubject, pageCount)
+      : getDomainFallbackScope(projectTitle, categoryKey);
 
     // Timeout safety fallback after 4 seconds
     const timeoutPromise = new Promise<void>((resolve) => {
@@ -254,6 +427,8 @@ export const OrderWizard: React.FC = () => {
         domain: studentType === 'college' ? (selectedDomainObj?.name || 'Computer Science') : schoolSubject,
         deliverables: selectedAddons,
         student_type: studentType,
+        school_class: schoolClass,
+        page_count: pageCount,
         notes: description,
       }, { timeout: 4000 });
 
@@ -283,6 +458,8 @@ export const OrderWizard: React.FC = () => {
         domain: studentType === 'college' ? (selectedDomainObj?.name || 'Computer Science') : schoolSubject,
         deliverables: selectedAddons,
         student_type: studentType,
+        school_class: schoolClass,
+        page_count: pageCount,
         notes: `${description} - Student modification request: ${customPrompt}`,
       }, { timeout: 4500 });
       setAiScope(res.data);
@@ -617,7 +794,10 @@ export const OrderWizard: React.FC = () => {
                           : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                       }`}
                     >
-                      Normal<br /><span className="text-[10px] text-slate-400 font-normal">5-7 Days</span>
+                      Normal<br />
+                      <span className="text-[10px] text-slate-400 font-normal">
+                        {studentType === 'school' ? '3-5 Days' : '5-7 Days'}
+                      </span>
                     </button>
                     <button
                       type="button"
@@ -628,7 +808,10 @@ export const OrderWizard: React.FC = () => {
                           : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                       }`}
                     >
-                      Express (+₹600)<br /><span className="text-[10px] text-amber-600 font-normal">48 Hours</span>
+                      {studentType === 'school' ? 'Express (+₹150)' : 'Express (+₹600)'}<br />
+                      <span className="text-[10px] text-amber-600 font-normal">
+                        {studentType === 'school' ? '24-48 Hours' : '48 Hours'}
+                      </span>
                     </button>
                     <button
                       type="button"
@@ -639,7 +822,8 @@ export const OrderWizard: React.FC = () => {
                           : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                       }`}
                     >
-                      Super (+₹900)<br /><span className="text-[10px] text-rose-600 font-normal">24 Hours</span>
+                      {studentType === 'school' ? 'Super (+₹300)' : 'Super (+₹900)'}<br />
+                      <span className="text-[10px] text-rose-600 font-normal">24 Hours</span>
                     </button>
                   </div>
                 </div>
@@ -651,126 +835,58 @@ export const OrderWizard: React.FC = () => {
                   Select Deliverables & Add-ons (Check all that apply)
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  
-                  {/* Code - Always Included */}
-                  <div className="flex items-center justify-between p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/50">
-                    <div className="flex items-center gap-3">
-                      <div className="w-5 h-5 rounded bg-emerald-600 text-white flex items-center justify-center">
-                        <Check className="w-3.5 h-3.5" />
-                      </div>
-                      <div>
-                        <span className="text-sm font-bold text-slate-800">Source Code & Setup Guide</span>
-                        <p className="text-[11px] text-slate-500">Full clean code with README execution steps</p>
-                      </div>
-                    </div>
-                    <span className="text-xs font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
-                      Included
-                    </span>
-                  </div>
+                  {(studentType === 'school' ? SCHOOL_ADDONS : COLLEGE_ADDONS).map(addon => {
+                    if (addon.isIncluded) {
+                      return (
+                        <div
+                          key={addon.id}
+                          className="flex items-center justify-between p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/50"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-5 h-5 rounded bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                              <Check className="w-3.5 h-3.5" />
+                            </div>
+                            <div>
+                              <span className="text-sm font-bold text-slate-800">{addon.name}</span>
+                              <p className="text-[11px] text-slate-500">{addon.desc}</p>
+                            </div>
+                          </div>
+                          <span className="text-xs font-bold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded shrink-0">
+                            Included
+                          </span>
+                        </div>
+                      );
+                    }
 
-                  {/* Project Report */}
-                  <label
-                    onClick={() => toggleAddon('report')}
-                    className={`flex items-center justify-between p-3.5 rounded-xl border cursor-pointer transition-all ${
-                      selectedAddons.includes('report')
-                        ? 'border-brand-600 bg-brand-50/60 shadow-sm'
-                        : 'border-slate-200 bg-white hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={selectedAddons.includes('report')}
-                        onChange={() => {}}
-                        className="w-4 h-4 rounded text-brand-600 accent-brand-600"
-                      />
-                      <div>
-                        <span className="text-sm font-bold text-slate-800">Project Report (IEEE Format)</span>
-                        <p className="text-[11px] text-slate-500">30-40 pages documentation with diagrams</p>
-                      </div>
-                    </div>
-                    <span className="text-xs font-bold text-brand-600 bg-white px-2 py-0.5 rounded border border-brand-200">
-                      +₹500
-                    </span>
-                  </label>
-
-                  {/* PPT Slides */}
-                  <label
-                    onClick={() => toggleAddon('ppt')}
-                    className={`flex items-center justify-between p-3.5 rounded-xl border cursor-pointer transition-all ${
-                      selectedAddons.includes('ppt')
-                        ? 'border-brand-600 bg-brand-50/60 shadow-sm'
-                        : 'border-slate-200 bg-white hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={selectedAddons.includes('ppt')}
-                        onChange={() => {}}
-                        className="w-4 h-4 rounded text-brand-600 accent-brand-600"
-                      />
-                      <div>
-                        <span className="text-sm font-bold text-slate-800">Presentation PPT Slides</span>
-                        <p className="text-[11px] text-slate-500">15-20 professional slides with diagrams</p>
-                      </div>
-                    </div>
-                    <span className="text-xs font-bold text-brand-600 bg-white px-2 py-0.5 rounded border border-brand-200">
-                      +₹350
-                    </span>
-                  </label>
-
-                  {/* Viva Preparation Guide */}
-                  <label
-                    onClick={() => toggleAddon('viva_guide')}
-                    className={`flex items-center justify-between p-3.5 rounded-xl border cursor-pointer transition-all ${
-                      selectedAddons.includes('viva_guide')
-                        ? 'border-brand-600 bg-brand-50/60 shadow-sm'
-                        : 'border-slate-200 bg-white hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={selectedAddons.includes('viva_guide')}
-                        onChange={() => {}}
-                        className="w-4 h-4 rounded text-brand-600 accent-brand-600"
-                      />
-                      <div>
-                        <span className="text-sm font-bold text-slate-800">Viva / Exam Question Guide</span>
-                        <p className="text-[11px] text-slate-500">Top 30 expected viva examiner Q&A</p>
-                      </div>
-                    </div>
-                    <span className="text-xs font-bold text-brand-600 bg-white px-2 py-0.5 rounded border border-brand-200">
-                      +₹300
-                    </span>
-                  </label>
-
-                  {/* 1-on-1 Walkthrough Call */}
-                  <label
-                    onClick={() => toggleAddon('walkthrough_call')}
-                    className={`flex items-center justify-between p-3.5 rounded-xl border cursor-pointer transition-all ${
-                      selectedAddons.includes('walkthrough_call')
-                        ? 'border-brand-600 bg-brand-50/60 shadow-sm'
-                        : 'border-slate-200 bg-white hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={selectedAddons.includes('walkthrough_call')}
-                        onChange={() => {}}
-                        className="w-4 h-4 rounded text-brand-600 accent-brand-600"
-                      />
-                      <div>
-                        <span className="text-sm font-bold text-slate-800">1-on-1 Code Walkthrough Call</span>
-                        <p className="text-[11px] text-slate-500">30-min live Google Meet code explanation</p>
-                      </div>
-                    </div>
-                    <span className="text-xs font-bold text-brand-600 bg-white px-2 py-0.5 rounded border border-brand-200">
-                      +₹400
-                    </span>
-                  </label>
+                    const isChecked = selectedAddons.includes(addon.id);
+                    return (
+                      <label
+                        key={addon.id}
+                        onClick={() => toggleAddon(addon.id)}
+                        className={`flex items-center justify-between p-3.5 rounded-xl border cursor-pointer transition-all ${
+                          isChecked
+                            ? 'border-brand-600 bg-brand-50/60 shadow-sm'
+                            : 'border-slate-200 bg-white hover:border-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {}}
+                            className="w-4 h-4 rounded text-brand-600 accent-brand-600 shrink-0"
+                          />
+                          <div>
+                            <span className="text-sm font-bold text-slate-800">{addon.name}</span>
+                            <p className="text-[11px] text-slate-500">{addon.desc}</p>
+                          </div>
+                        </div>
+                        <span className="text-xs font-bold text-brand-600 bg-white px-2 py-0.5 rounded border border-brand-200 shrink-0">
+                          {addon.priceLabel}
+                        </span>
+                      </label>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -815,7 +931,10 @@ export const OrderWizard: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => {
-                      setAiScope(getDomainFallbackScope(projectTitle, categoryKey));
+                      const fb = studentType === 'school'
+                        ? getSchoolFallbackScope(projectTitle, schoolClass, schoolSubject, pageCount)
+                        : getDomainFallbackScope(projectTitle, categoryKey);
+                      setAiScope(fb);
                       setRefiningAi(false);
                     }}
                     className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold rounded-xl shadow-md transition-all active:scale-95 cursor-pointer"
@@ -833,7 +952,7 @@ export const OrderWizard: React.FC = () => {
                   <div className="bg-white p-6 sm:p-7 rounded-2xl border border-slate-200 shadow-sm space-y-5">
                     
                     <div className="flex items-center gap-2 text-xs font-bold text-brand-600 bg-brand-50 px-3 py-1.5 rounded-lg w-fit">
-                      <Sparkles className="w-4 h-4" /> AI Generated Project Proposal
+                      <Sparkles className="w-4 h-4" /> {studentType === 'school' ? `🎒 AI Academic Syllabus Plan (${schoolClass} • ${schoolSubject})` : 'AI Generated Project Proposal'}
                     </div>
 
                     <div>
@@ -841,20 +960,28 @@ export const OrderWizard: React.FC = () => {
                         {aiScope?.refined_title || projectTitle}
                       </h2>
                       <p className="text-xs text-slate-500 mt-1">
-                        Timeline: <span className="font-semibold text-slate-800">{aiScope?.timeline_days || 5} Days</span> • Methodology: {aiScope?.methodology || 'Agile Sprints'}
+                        Timeline: <span className="font-semibold text-slate-800">{aiScope?.timeline_days || (studentType === 'school' ? 3 : 5)} Days</span> • {studentType === 'school' ? 'Curriculum' : 'Methodology'}: {aiScope?.methodology || (studentType === 'school' ? 'NCERT & Board Aligned Proofs Layout' : 'Agile Sprints')}
                       </p>
                     </div>
 
-                    {/* Tech Stack Chips */}
+                    {/* Tech Stack or Syllabus Topics */}
                     <div>
                       <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                        Planned Technology Stack
+                        {studentType === 'school' ? '📐 Key Syllabus Chapters & Academic Concepts' : 'Planned Technology Stack'}
                       </h4>
                       <div className="flex flex-wrap gap-2">
-                        {(aiScope?.tech_stack || ['Python', 'FastAPI', 'React', 'Tailwind']).map((tech, idx) => (
+                        {(aiScope?.tech_stack || (
+                          studentType === 'school'
+                            ? ['Basic Proportionality Theorem (Thales)', 'Similarity Criteria (AAA, SSS, SAS)', 'NCERT Exemplar Problems']
+                            : ['Python', 'FastAPI', 'React', 'Tailwind']
+                        )).map((tech, idx) => (
                           <span
                             key={idx}
-                            className="bg-slate-100 text-slate-800 text-xs font-semibold px-3 py-1 rounded-lg border border-slate-200"
+                            className={`text-xs font-semibold px-3 py-1 rounded-lg border ${
+                              studentType === 'school'
+                                ? 'bg-indigo-50 text-indigo-800 border-indigo-200'
+                                : 'bg-slate-100 text-slate-800 border-slate-200'
+                            }`}
                           >
                             {tech}
                           </span>
@@ -865,13 +992,22 @@ export const OrderWizard: React.FC = () => {
                     {/* Deliverables Checklist */}
                     <div>
                       <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                        Guaranteed Deliverables
+                        {studentType === 'school' ? `📚 Guaranteed Academic Deliverables (${pageCount} Pages)` : 'Guaranteed Deliverables'}
                       </h4>
                       <ul className="space-y-2">
-                        {(aiScope?.deliverables_detail || [
-                          'Complete working source code',
-                          'README execution and setup guide',
-                        ]).map((deliv, idx) => (
+                        {(aiScope?.deliverables_detail || (
+                          studentType === 'school'
+                            ? [
+                                `${pageCount}-Page High-Yield Structured Notes (Printable PDF)`,
+                                'Neat Geometric Diagrams & Figure Illustrations with Clear Labels',
+                                '15+ Solved Board Exemplar Problems with Step-by-Step Reasons',
+                                'Formula Cheat Sheet & Quick-Revision Theorem Card'
+                              ]
+                            : [
+                                'Complete working source code',
+                                'README execution and setup guide',
+                              ]
+                        )).map((deliv, idx) => (
                           <li key={idx} className="flex items-start gap-2.5 text-sm text-slate-700">
                             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                             <span>{deliv}</span>
@@ -884,7 +1020,7 @@ export const OrderWizard: React.FC = () => {
                     {aiScope?.suggested_improvements && aiScope.suggested_improvements.length > 0 && (
                       <div className="bg-amber-50/70 p-4 rounded-xl border border-amber-200 text-xs space-y-1.5">
                         <span className="font-bold text-amber-900 flex items-center gap-1.5">
-                          <AlertCircle className="w-4 h-4 text-amber-600" /> Mentor Enhancement Recommendations:
+                          <AlertCircle className="w-4 h-4 text-amber-600" /> {studentType === 'school' ? '🎯 Exam-Ready Mentor & Syllabus Recommendations:' : 'Mentor Enhancement Recommendations:'}
                         </span>
                         {aiScope.suggested_improvements.map((imp, idx) => (
                           <p key={idx} className="text-amber-800 pl-5">• {imp}</p>
@@ -896,14 +1032,20 @@ export const OrderWizard: React.FC = () => {
                   {/* Interactive Prompt Box for Scope Customization */}
                   <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
                     <label className="block text-xs font-bold text-slate-900">
-                      Want to modify or add anything? Tell the AI:
+                      {studentType === 'school'
+                        ? 'Want to add specific theorems, exemplar questions, or diagram formats? Tell the AI:'
+                        : 'Want to modify or add anything? Tell the AI:'}
                     </label>
                     <div className="flex gap-2">
                       <input
                         type="text"
                         value={customPrompt}
                         onChange={e => setCustomPrompt(e.target.value)}
-                        placeholder="e.g., 'Add dark mode UI and include random forest evaluation metrics'"
+                        placeholder={
+                          studentType === 'school'
+                            ? 'e.g., "Add 5 NCERT exemplar questions with steps, or focus more on converse of BPT theorem"'
+                            : 'e.g., "Add dark mode UI and include random forest evaluation metrics"'
+                        }
                         className="input-field text-sm"
                         onKeyDown={e => e.key === 'Enter' && handlePromptRefinement()}
                       />
@@ -926,16 +1068,19 @@ export const OrderWizard: React.FC = () => {
                     
                     <div className="space-y-2.5 text-sm">
                       <div className="flex justify-between text-slate-600">
-                        <span>Base Project ({studentType})</span>
+                        <span>{studentType === 'school' ? `School Assignment (${pageCount} Pages)` : 'Base College Project'}</span>
                         <span className="font-semibold text-slate-900">₹{pricing.base_price}</span>
                       </div>
 
-                      {Object.entries(pricing.addons_breakdown).map(([k, amt]) => (
-                        <div key={k} className="flex justify-between text-slate-600 text-xs">
-                          <span className="capitalize">{k.replace('_', ' ')}</span>
-                          <span className="font-semibold text-slate-900">+₹{amt}</span>
-                        </div>
-                      ))}
+                      {Object.entries(pricing.addons_breakdown).map(([k, amt]) => {
+                        const addonObj = [...SCHOOL_ADDONS, ...COLLEGE_ADDONS].find(a => a.id === k);
+                        return (
+                          <div key={k} className="flex justify-between text-slate-600 text-xs">
+                            <span className="truncate max-w-[200px]">{addonObj ? addonObj.name : k.replace('_', ' ')}</span>
+                            <span className="font-semibold text-slate-900 shrink-0">+₹{amt}</span>
+                          </div>
+                        );
+                      })}
 
                       {pricing.urgency_fee > 0 && (
                         <div className="flex justify-between text-amber-600 text-xs">
@@ -1181,6 +1326,18 @@ export const OrderWizard: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {user?.role === 'admin' && (
+              <button
+                type="button"
+                onClick={() => {
+                  setUtrNumber(`${Date.now()}`.slice(-12));
+                }}
+                className="w-full py-2 bg-purple-100 hover:bg-purple-200 text-purple-800 text-xs font-bold rounded-xl border border-purple-300 flex items-center justify-center gap-1.5 transition-all"
+              >
+                <Zap className="w-4 h-4 text-purple-600" /> Admin Fast-Fill 12-Digit Demo UTR
+              </button>
+            )}
 
             <button
               type="button"

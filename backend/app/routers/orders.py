@@ -31,7 +31,8 @@ from app.services.ai_service import (
     explain_code_snippet,
     generate_readme_and_docker,
     rewrite_academic_turnitin,
-    handle_whatsapp_bot_command
+    handle_whatsapp_bot_command,
+    ask_academic_assistant
 )
 from app.services.notification_service import create_notification, notify_admin_team
 
@@ -51,6 +52,14 @@ class RefineScopeRequest(BaseModel):
     deliverables: List[str] = ["code"]
     student_type: str = "college"
     notes: Optional[str] = None
+    school_class: Optional[str] = None
+    page_count: Optional[int] = None
+
+
+class AcademicAssistantRequest(BaseModel):
+    message: str
+    student_type: Optional[str] = "college"
+    context: Optional[dict] = None
 
 
 class CreateOrderRequest(BaseModel):
@@ -386,10 +395,22 @@ def get_user_payment_quota(
 @router.post("/refine-scope")
 def refine_scope(req: RefineScopeRequest):
     result = refine_project_scope(
-        req.project_title, req.domain, req.deliverables,
-        req.student_type, req.notes
+        project_title=req.project_title,
+        domain=req.domain,
+        deliverables=req.deliverables,
+        student_type=req.student_type,
+        notes=req.notes,
+        school_class=req.school_class,
+        page_count=req.page_count
     )
     return result
+
+
+@router.post("/ai/academic-assistant")
+def academic_assistant_chat(req: AcademicAssistantRequest):
+    if not req.message or not req.message.strip():
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+    return ask_academic_assistant(req.message.strip(), req.student_type or "college", req.context)
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -532,6 +553,9 @@ def update_order_status(
 
     if req.status == "completed":
         order.completed_at = datetime.utcnow()
+        if req.balance_amount is None:
+            order.balance_amount = 0.0
+            order.payment_verified = True
         if not order.certificate_id:
             order.certificate_id = f"CG-CERT-2026-{uuid.uuid4().hex[:8].upper()}"
             order.certificate_issued_at = datetime.utcnow()

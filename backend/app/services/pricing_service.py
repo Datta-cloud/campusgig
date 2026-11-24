@@ -43,8 +43,8 @@ def calculate_order_price(
     addons_breakdown = {}
     addons_total = 0.0
 
-    # Filter out "code" from add-ons (it's always included in base)
-    paid_deliverables = [d for d in deliverables_list if d != "code"]
+    # Filter out base deliverables ("code" for college, "notes_pdf" for school)
+    paid_deliverables = [d for d in deliverables_list if d not in ("code", "notes_pdf")]
 
     for deliverable in paid_deliverables:
         if deliverable in add_ons:
@@ -56,9 +56,9 @@ def calculate_order_price(
     urgency_fee = 0.0
     express_base = add_ons.get("express", 0)
     if urgency == "express":
-        urgency_fee = express_base
+        urgency_fee = float(express_base)
     elif urgency == "super_express":
-        urgency_fee = express_base * 1.5  # 1.5x express rate for super express
+        urgency_fee = float(express_base * 2.0 if category_key == "school_assignment" else express_base * 1.5)
 
     # Total calculation
     total = base_price + addons_total + urgency_fee
