@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, X, Send, Sparkles, Bot, ArrowRight, BookOpen, Calculator, GraduationCap, ChevronDown } from 'lucide-react';
+import { MessageSquare, X, Send, Sparkles, Bot, ArrowRight, BookOpen, Calculator, GraduationCap, ChevronDown, RotateCcw } from 'lucide-react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -17,19 +17,46 @@ const STARTER_QUESTIONS = [
   { label: '🤖 College ML Project Ideas', query: 'What are popular Final Year ML and GenAI capstone project topics?' },
 ];
 
+const CHAT_STORAGE_KEY = 'campusgig_academic_chat_history';
+
 export const AcademicChatbot: React.FC = () => {
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: 'welcome',
-      sender: 'assistant',
-      text: `👋 Hi ${user?.full_name || 'there'}! I am your **CampusGig Academic AI Assistant**.\n\nI can help you with:\n• 📚 **CBSE & ICSE Syllabus** (e.g., Class 10th Math Triangles, Science)\n• 💰 **Dynamic Price Breakdown** (Base rates + add-ons)\n• 🎓 **College Final Year Projects** (ML, GenAI, Web, Android)\n• ⚡ **Milestone Delivery & Defense Support**\n\nHow can I help you today?`,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    },
-  ]);
+
+  const getInitialMessages = (): ChatMessage[] => {
+    try {
+      const saved = localStorage.getItem(CHAT_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.warn("Failed to parse chat history:", e);
+    }
+    return [
+      {
+        id: 'welcome',
+        sender: 'assistant',
+        text: `👋 Hi ${user?.full_name || 'there'}! I am your **CampusGig Academic AI Assistant** (supported by Lead Mentor **Datta Hadke**).\n\nI can help you with:\n• 📚 **CBSE & ICSE Syllabus** (e.g., Class 10th Math Triangles & Similarity, Science)\n• 💰 **Dynamic Price Calculations** (Transparent rates + 30% advance)\n• 🎓 **College Final Year Projects** (ML, GenAI, Web, Android)\n• ⚡ **Direct 1-on-1 Guidance with Founder Datta Hadke**\n\nHow can I help you today?`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      },
+    ];
+  };
+
+  const [messages, setMessages] = useState<ChatMessage[]>(getInitialMessages);
+
+  // Sync chat history to localStorage
+  useEffect(() => {
+    try {
+      if (messages.length > 0) {
+        localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages.slice(-30)));
+      }
+    } catch (e) {
+      console.warn("Failed to persist chat history:", e);
+    }
+  }, [messages]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -43,6 +70,20 @@ export const AcademicChatbot: React.FC = () => {
     }
   }, [messages, isOpen]);
 
+  const handleClearChat = () => {
+    try {
+      localStorage.removeItem(CHAT_STORAGE_KEY);
+    } catch (e) {}
+    setMessages([
+      {
+        id: `welcome-${Date.now()}`,
+        sender: 'assistant',
+        text: `🧹 **Chat history cleared!**\n\nHi ${user?.full_name || 'there'}, feel free to ask about syllabus topics, project guidelines, or dynamic pricing.`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      }
+    ]);
+  };
+
   const handleSendMessage = async (textToSend?: string) => {
     const query = (textToSend || input).trim();
     if (!query || loading) return;
@@ -54,20 +95,34 @@ export const AcademicChatbot: React.FC = () => {
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
-    setMessages(prev => [...prev, userMsg]);
+    const currentHistory = [...messages, userMsg];
+    setMessages(currentHistory);
     setInput('');
     setLoading(true);
 
+    // Prepare multi-turn history for backend context
+    const historyPayload = messages.slice(-10).map(m => ({
+      role: m.sender === 'user' ? 'user' : 'model',
+      text: m.text
+    }));
+
     try {
-      // Call Academic Assistant endpoint (supports /api/ai/academic-assistant and /api/orders/ai/academic-assistant)
+      // Call Academic Assistant endpoint with multi-turn history
       const res = await api.post('/ai/academic-assistant', {
         message: query,
+        history: historyPayload,
         student_type: user?.student_type || 'college',
-        context: `User is a ${user?.student_type || 'student'}${user?.school_class ? ` in ${user.school_class}` : ''}.`
+        context: {
+          student_name: user?.full_name || 'Student',
+          student_type: user?.student_type || 'college',
+          school_class: user?.school_class || undefined,
+          lead_mentor: "Datta Hadke"
+        }
       }).catch(async () => {
         // Fallback endpoint if route alias differs
         return await api.post('/orders/ai/academic-assistant', {
           message: query,
+          history: historyPayload,
           student_type: user?.student_type || 'college',
         });
       });
@@ -85,9 +140,11 @@ export const AcademicChatbot: React.FC = () => {
       ]);
     } catch (err) {
       // Graceful offline fallback
-      let fallbackText = "I'm having trouble connecting to the AI brain right now. For Class 10 Mathematics (Triangles & Similarity), our system covers Chapter 6: Thales Theorem (BPT), Converse of BPT, Similarity Criteria (AAA, SSS, SAS), Area Ratios, and Pythagoras Theorem connections with 15+ solved questions!";
+      let fallbackText = "I'm here to help! For Class 10 Mathematics (Triangles & Similarity), our notes cover Chapter 6: Thales Theorem (BPT), Converse of BPT, Similarity Criteria (AAA, SSS, SAS), Area Ratios, and Pythagoras Theorem connections with 15+ solved questions!";
       if (query.toLowerCase().includes('price') || query.toLowerCase().includes('cost')) {
         fallbackText = "💰 **Pricing Structure:**\n• **School Students:** ₹50 per page (min 10 pages) + optional add-ons (diagrams ₹150, solved proofs ₹100, formula sheet ₹100).\n• **College Students:** Machine Learning starting from ₹1,500 with full working code, setup guide, and documentation.";
+      } else if (query.toLowerCase().includes('which ai') || query.toLowerCase().includes('who are you')) {
+        fallbackText = "🤖 I am **CampusGig Academic AI Assistant**, powered by Google Gemini! I work directly with our founder and lead mentor **Datta Hadke** to guide students on assignments, code, and viva defense.";
       }
 
       setMessages(prev => [
@@ -154,13 +211,24 @@ export const AcademicChatbot: React.FC = () => {
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setIsOpen(false)}
-              className="p-1.5 rounded-xl hover:bg-white/20 transition-all text-white/80 hover:text-white"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={handleClearChat}
+                className="p-1.5 rounded-xl hover:bg-white/20 transition-all text-white/80 hover:text-white"
+                title="Clear chat history"
+              >
+                <RotateCcw className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="p-1.5 rounded-xl hover:bg-white/20 transition-all text-white/80 hover:text-white"
+                title="Close chat"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
           {/* Quick Suggestion Chips */}

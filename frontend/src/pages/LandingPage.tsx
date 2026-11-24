@@ -116,9 +116,9 @@ export const LandingPage: React.FC = () => {
             rating: 4.9,
             reviews_count: 34,
             mentor: {
-              name: 'Dr. Rohit Sharma',
+              name: 'Datta Hadke',
               avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-              role: 'Senior ML Mentor & IIT Alum',
+              role: 'Founder & Lead Academic Mentor',
               verified: true
             },
             tags: ['Python', 'Scikit-Learn', 'Streamlit', 'IEEE Paper', 'Dataset']
@@ -136,9 +136,9 @@ export const LandingPage: React.FC = () => {
             rating: 5.0,
             reviews_count: 29,
             mentor: {
-              name: 'Ananya Sen',
-              avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=200&q=80',
-              role: 'AI Research Scholar',
+              name: 'Datta Hadke',
+              avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+              role: 'Founder & Lead Academic Mentor',
               verified: true
             },
             tags: ['Gemini 2.0', 'LangChain', 'FAISS', 'FastAPI', 'React']
@@ -156,9 +156,9 @@ export const LandingPage: React.FC = () => {
             rating: 5.0,
             reviews_count: 38,
             mentor: {
-              name: 'Pooja Hegde',
-              avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=200&q=80',
-              role: 'CBSE Math Educator',
+              name: 'Datta Hadke',
+              avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+              role: 'Founder & Lead Academic Mentor',
               verified: true
             },
             tags: ['Class 10th', 'Mathematics', 'BPT Theorem', 'Exemplar', 'Printable PDF']
@@ -307,7 +307,7 @@ export const LandingPage: React.FC = () => {
           {/* Desktop Nav Links */}
           <div className="hidden md:flex items-center gap-6 text-xs font-bold text-slate-600">
             <a href="#how-it-works" className="hover:text-brand-600 transition-colors">How It Works</a>
-            <a href="#gigs" className="hover:text-brand-600 transition-colors">Popular Gigs</a>
+            <a href="#mentorship" className="hover:text-brand-600 transition-colors">Direct Mentorship</a>
             <a href="#categories" className="hover:text-brand-600 transition-colors">Academic Streams</a>
             <a href="#benefits" className="hover:text-brand-600 transition-colors">Why CampusGig</a>
             <a href="#faqs" className="hover:text-brand-600 transition-colors">FAQs</a>
@@ -405,14 +405,6 @@ export const LandingPage: React.FC = () => {
 
           {/* Prominent CTA Buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 pt-6 max-w-md mx-auto">
-            <a
-              href="#gigs"
-              className="w-full sm:w-auto btn-primary py-3.5 px-6 text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-brand-500/25 active:scale-95 transition-all"
-            >
-              <Search className="w-4 h-4" />
-              <span>Explore Gigs</span>
-            </a>
-
             <button
               type="button"
               onClick={() => {
@@ -426,11 +418,19 @@ export const LandingPage: React.FC = () => {
                   setMode('register');
                 }
               }}
+              className="w-full sm:w-auto btn-primary py-3.5 px-6 text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-brand-500/25 active:scale-95 transition-all"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>Start Project with Datta Hadke</span>
+            </button>
+
+            <a
+              href="#mentorship"
               className="w-full sm:w-auto bg-white/10 hover:bg-white/15 border border-white/20 text-white py-3.5 px-6 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 backdrop-blur transition-all active:scale-95"
             >
-              <span>Start Your Project</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
+              <GraduationCap className="w-4 h-4 text-amber-300" />
+              <span>Direct Mentorship</span>
+            </a>
           </div>
 
         </div>
@@ -531,97 +531,120 @@ export const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Featured Gigs Marketplace Section */}
-      <section id="gigs" className="py-16 sm:py-24 px-4 sm:px-6 bg-white border-b border-slate-200/80">
-        <div className="max-w-7xl mx-auto space-y-10">
+      {/* Direct Academic Mentorship by Founder Datta Hadke */}
+      <section id="mentorship" className="py-16 sm:py-24 px-4 sm:px-6 bg-white border-b border-slate-200/80">
+        <div className="max-w-7xl mx-auto space-y-12">
           
-          {/* Header & Search Bar */}
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
-            <div className="space-y-2">
-              <span className="text-xs font-extrabold uppercase tracking-wider text-brand-600 bg-brand-50 px-3 py-1 rounded-full border border-brand-200">
-                Verified Offerings
-              </span>
-              <h2 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">
-                Featured Academic Gigs
-              </h2>
-              <p className="text-xs sm:text-sm text-slate-500 max-w-lg">
-                Explore pre-scoped project implementations with working source code, reports &amp; mentor walkthroughs.
-              </p>
-            </div>
+          {/* Header */}
+          <div className="text-center max-w-3xl mx-auto space-y-3">
+            <span className="text-xs font-black uppercase tracking-wider text-brand-700 bg-brand-50 px-3.5 py-1.5 rounded-full border border-brand-200 inline-flex items-center gap-1.5 shadow-2xs">
+              <ShieldCheck className="w-3.5 h-3.5 text-brand-600" />
+              <span>Founder &amp; Sole Lead Academic Mentor</span>
+            </span>
+            <h2 className="text-3xl sm:text-5xl font-black text-slate-900 tracking-tight">
+              Direct 1-on-1 Mentorship with Datta Hadke
+            </h2>
+            <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
+              No third-party freelancers or automated guesswork. Every capstone project, IEEE documentation, viva defense walkthrough, and school homework note is engineered and guided directly by our founder.
+            </p>
+          </div>
 
-            {/* Search Input & Marketplace Link */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
-              <div className="relative w-full md:w-80">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Search gigs, e.g. 'Crop ML' or '10th Math'..."
-                  className="w-full pl-10 pr-4 py-2.5 text-xs font-medium bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:ring-2 focus:ring-brand-500 outline-none transition-all"
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
+          {/* Mentor Profile Spotlight Card */}
+          <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-6 sm:p-10 text-white shadow-2xl border border-indigo-800/40 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center relative z-10">
+              
+              {/* Mentor Identity */}
+              <div className="lg:col-span-5 flex flex-col sm:flex-row items-center sm:items-start gap-5 text-center sm:text-left">
+                <div className="relative shrink-0">
+                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden ring-4 ring-brand-400/50 shadow-xl bg-slate-800">
+                    <img
+                      src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80"
+                      alt="Datta Hadke"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <span className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 border-2 border-slate-900 rounded-full flex items-center justify-center text-[10px] text-white font-bold" title="Verified Active Mentor">
+                    ✓
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[11px] font-bold border border-emerald-500/30">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span>Accepting Student Sprints</span>
+                  </div>
+                  <h3 className="text-2xl font-black text-white tracking-tight">Datta Hadke</h3>
+                  <p className="text-xs font-semibold text-brand-300">Founder &amp; Sole Academic Lead • Full-Stack &amp; AI Engineer</p>
+                  <p className="text-xs text-slate-300 leading-relaxed pt-1">
+                    VIIT Pune graduate with deep specialization in production ML systems, Gemini GenAI RAG, full-stack application development, and CBSE/ICSE board curriculum notes.
+                  </p>
+                  
+                  <div className="pt-2 flex flex-wrap gap-2 justify-center sm:justify-start text-[11px] font-mono text-slate-300">
+                    <span className="bg-white/10 px-2.5 py-1 rounded-lg border border-white/10">📞 +91 7020209079</span>
+                    <span className="bg-white/10 px-2.5 py-1 rounded-lg border border-white/10">✉️ hadkedattatray487@gmail.com</span>
+                  </div>
+                </div>
               </div>
 
-              <Link
-                to="/explore"
-                className="px-4 py-2.5 rounded-2xl bg-white border border-brand-200 text-brand-700 hover:bg-brand-50 font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all shrink-0"
-              >
-                <span>Full Marketplace</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-            </div>
-          </div>
+              {/* 4 Pillars of Direct Mentorship */}
+              <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-brand-400/40 transition-all">
+                  <div className="w-8 h-8 rounded-xl bg-brand-500/20 text-brand-300 flex items-center justify-center font-bold mb-2 text-sm">
+                    30%
+                  </div>
+                  <h4 className="font-bold text-sm text-white">Milestone Advance Escrow</h4>
+                  <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                    Pay only 30% advance to initiate your sprint. The 70% balance is paid only after reviewing full working code and screen recordings.
+                  </p>
+                </div>
 
-          {/* Category Filter Chips */}
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
-            {CATEGORIES.map(c => (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => setSelectedCategory(c.id)}
-                className={`whitespace-nowrap px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
-                  selectedCategory === c.id
-                    ? 'bg-brand-600 text-white shadow-sm'
-                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                }`}
-              >
-                {c.name}
-              </button>
-            ))}
-          </div>
+                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-brand-400/40 transition-all">
+                  <div className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-300 flex items-center justify-center font-bold mb-2 text-sm">
+                    0%
+                  </div>
+                  <h4 className="font-bold text-sm text-white">Plagiarism Guarantee</h4>
+                  <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                    Every thesis report, presentation deck, and code architecture is tailored to your college guidelines with 0% AI hallucination.
+                  </p>
+                </div>
 
-          {/* Gigs Grid */}
-          {gigsLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[1, 2, 3, 4, 5, 6].map(n => (
-                <GigSkeleton key={n} />
-              ))}
+                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-brand-400/40 transition-all">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center font-bold mb-2 text-sm">
+                    1:1
+                  </div>
+                  <h4 className="font-bold text-sm text-white">Private Viva Walkthrough</h4>
+                  <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                    Dedicated Google Meet session where Datta explains code logic, dataset pipelines, and anticipated external examiner questions.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-brand-400/40 transition-all">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center font-bold mb-2 text-sm">
+                    3x
+                  </div>
+                  <h4 className="font-bold text-sm text-white">Free Guided Revisions</h4>
+                  <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                    3 revision cycles included at zero cost. Have your project guide requested changes incorporated rapidly within 24–48 hours.
+                  </p>
+                </div>
+              </div>
+
             </div>
-          ) : filteredGigs.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredGigs.map(gig => (
-                <GigCard
-                  key={gig.id}
-                  gig={gig}
-                  onSaveToggle={handleSaveToggle}
-                  onSelect={(selected) => {
+
+            {/* CTAs inside spotlight */}
+            <div className="mt-8 pt-6 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-2 text-xs text-slate-300">
+                <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>Ready to start? Use our AI Project Wizard to calculate instant pricing &amp; timeline.</span>
+              </div>
+              <div className="flex items-center gap-3 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => {
                     if (user?.role === 'student') {
-                      navigate('/order/new', {
-                        state: {
-                          categoryKey: selected.category_key,
-                          studentType: selected.category_key === 'school_assignment' ? 'school' : 'college',
-                          initialTitle: selected.title,
-                        }
-                      });
+                      navigate('/order/new');
                     } else if (user?.role === 'admin') {
                       navigate('/admin');
                     } else {
@@ -630,21 +653,67 @@ export const LandingPage: React.FC = () => {
                       setMode('register');
                     }
                   }}
-                />
-              ))}
+                  className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-extrabold text-xs shadow-md shadow-brand-500/30 flex items-center justify-center gap-1.5 transition-all"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Scope Your Project Now</span>
+                </button>
+                <Link
+                  to="/explore"
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all border border-white/15"
+                >
+                  <span>Browse Catalog</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
             </div>
-          ) : (
-            <EmptyState
-              icon={Search}
-              title="No gigs found matching your search"
-              description={`We couldn't find any projects matching "${searchQuery}". Try clearing filters or create a custom request.`}
-              actionText="Reset All Filters"
-              onAction={() => {
-                setSearchQuery('');
-                setSelectedCategory('all');
-              }}
-            />
-          )}
+
+          </div>
+
+          {/* Academic Tracks Guided by Datta */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 hover:border-brand-300 hover:shadow-md transition-all group">
+              <div className="w-12 h-12 rounded-2xl bg-brand-100 text-brand-700 flex items-center justify-center font-black text-xl mb-4 group-hover:scale-105 transition-transform">
+                🤖
+              </div>
+              <h3 className="font-extrabold text-slate-900 text-base mb-2">College Final Year Capstones</h3>
+              <p className="text-xs text-slate-600 leading-relaxed mb-4">
+                Machine Learning, GenAI RAG, Agentic AI, Full-Stack MERN/FastAPI, and Mobile Apps. Complete source code, setup guide, IEEE 30-40 page report, and PPT deck.
+              </p>
+              <div className="flex items-center justify-between text-xs pt-3 border-t border-slate-200">
+                <span className="font-bold text-slate-700">Starts at ₹1,500</span>
+                <span className="text-brand-600 font-bold">30% Advance</span>
+              </div>
+            </div>
+
+            <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 hover:border-brand-300 hover:shadow-md transition-all group">
+              <div className="w-12 h-12 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center font-black text-xl mb-4 group-hover:scale-105 transition-transform">
+                🎒
+              </div>
+              <h3 className="font-extrabold text-slate-900 text-base mb-2">School Class 1 to 10th Homework</h3>
+              <p className="text-xs text-slate-600 leading-relaxed mb-4">
+                Class 10th Math Triangles &amp; Similarity proofs, science lab records, NCERT exemplar problem sets, and neatly handwritten or typed A4 printable PDFs.
+              </p>
+              <div className="flex items-center justify-between text-xs pt-3 border-t border-slate-200">
+                <span className="font-bold text-slate-700">₹50 / Page</span>
+                <span className="text-purple-600 font-bold">Min 10 Pages</span>
+              </div>
+            </div>
+
+            <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 hover:border-brand-300 hover:shadow-md transition-all group">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-black text-xl mb-4 group-hover:scale-105 transition-transform">
+                🎯
+              </div>
+              <h3 className="font-extrabold text-slate-900 text-base mb-2">Technical Placement &amp; Tutoring</h3>
+              <p className="text-xs text-slate-600 leading-relaxed mb-4">
+                1-on-1 private code coaching, Python &amp; Java OOPs, LeetCode data structures, ATS tech resume optimization, and mock project viva defense prep.
+              </p>
+              <div className="flex items-center justify-between text-xs pt-3 border-t border-slate-200">
+                <span className="font-bold text-slate-700">Flexible Sessions</span>
+                <span className="text-emerald-600 font-bold">1-on-1 Mentorship</span>
+              </div>
+            </div>
+          </div>
 
         </div>
       </section>

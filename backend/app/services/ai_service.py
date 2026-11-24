@@ -389,11 +389,12 @@ Respond with ONLY the JSON object, no markdown, no explanation."""
 def ask_academic_assistant(
     message: str,
     student_type: str = "college",
-    context: Optional[dict] = None
+    context: Optional[dict] = None,
+    history: Optional[List[dict]] = None
 ) -> dict:
     """
     Omnipresent Academic Advisor AI Chatbot for students across all pages.
-    Answers curriculum, syllabus, pricing, project ideas, and study doubts.
+    Answers curriculum, syllabus, pricing, project ideas, and study doubts with full multi-turn context.
     """
     clean_msg = (message or "").strip()
     if not clean_msg:
@@ -404,27 +405,52 @@ def ask_academic_assistant(
             import google.genai as genai
             client = genai.Client(api_key=GEMINI_API_KEY)
 
-            system_instruction = f"""You are CampusGig's Friendly AI Academic Advisor & Student Success Mentor.
+            system_instruction = f"""You are CampusGig's Official AI Academic Advisor.
+Founder & Lead Mentor: Datta Hadke (Full-Stack & AI Engineer).
+Datta Hadke is the sole mentor and founder of CampusGig who personalizes all project code, reports, viva defense, and school homework notes.
 The user is a {'school student (Class 1-10)' if student_type == 'school' else 'college/degree student (Engineering, BCA, MCA)'}.
 Context: {json.dumps(context or {})}
 
 Your objectives:
-1. If the student asks about a school topic (e.g. Class 10 Math similarity, BPT theorem, Science topics): provide a crystal-clear, syllabus-aligned explanation (NCERT/CBSE/State Board), give step-by-step guidance, and explain how CampusGig mentors deliver customized notes and solutions.
-2. If asked about pricing: Explain transparently. School assignments start at ₹50/page (min 10 pages) with only 30% advance required to start, balance on completion. College projects start at transparent rates (e.g. ML at ₹1,500 base) with 30% advance and 70% balance.
-3. If asked about project ideas: Suggest high-scoring, impressive topics with clear deliverable blueprints.
-4. Keep answers motivating, student-friendly, and concise (under 180 words unless a detailed proof is requested). Use bullet points and emoji where helpful."""
+1. If asked "which ai are u" or similar: state clearly "I am CampusGig Academic AI Assistant, built with Google Gemini to mentor students on capstone engineering projects and school homework alongside our founder Datta Hadke."
+2. If asked about school topics (Class 10th Math similarity, Thales Theorem, Science): give crystal-clear syllabus-aligned explanations (NCERT/CBSE/State Board) with step-by-step guidance.
+3. If asked about pricing: School assignments start at ₹50/page (min 10 pages). College projects start transparently (e.g. ML at ₹1,500 base) with only 30% advance required to book, 70% balance on delivery.
+4. Keep answers motivating, student-friendly, and concise (under 140 words unless a detailed proof is requested). Use bullet points where helpful."""
 
-            response = client.models.generate_content(
-                model=GEMINI_MODEL,
-                contents=f"{system_instruction}\n\nStudent: {clean_msg}\nAI Advisor:"
-            )
-            return {"reply": response.text.strip(), "source": "gemini"}
+            # Build conversation history
+            conv_prompt = system_instruction + "\n\n--- Conversation History ---\n"
+            if history and isinstance(history, list):
+                for h in history[-8:]:  # Last 8 turns for tight, fast context
+                    sender = "Student" if h.get("role") in ("user", "student") else "AI Advisor"
+                    text = h.get("text") or h.get("content") or ""
+                    if text:
+                        conv_prompt += f"{sender}: {text}\n"
+
+            conv_prompt += f"Student: {clean_msg}\nAI Advisor:"
+
+            # Try models in priority order for lightning-fast responses
+            models_to_try = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+            if GEMINI_MODEL and GEMINI_MODEL not in models_to_try:
+                models_to_try.insert(0, GEMINI_MODEL)
+
+            for mod in models_to_try:
+                try:
+                    response = client.models.generate_content(
+                        model=mod,
+                        contents=conv_prompt
+                    )
+                    if response and response.text:
+                        return {"reply": response.text.strip(), "source": "gemini", "model": mod}
+                except Exception as model_err:
+                    print(f"Gemini model {mod} failed: {model_err}, trying next...")
         except Exception as e:
             print(f"Gemini academic assistant chat failed: {e}, using keyword fallback")
 
     # Smart Keyword Fallback
     lower_query = clean_msg.lower()
-    if any(k in lower_query for k in ["similarity", "parallel", "triangle", "thales", "bpt", "10th math"]):
+    if any(k in lower_query for k in ["which ai", "who are you", "what are you", "kya ho", "kaun ho"]):
+        reply = "🤖 I am **CampusGig Academic AI Assistant**, powered by Google Gemini! I work directly with our founder and lead mentor **Datta Hadke** to help students with syllabus doubts, Class 10th Math/Science notes, capstone engineering projects, and dynamic pricing."
+    elif any(k in lower_query for k in ["similarity", "parallel", "triangle", "thales", "bpt", "10th math"]):
         reply = (
             "📐 **Class 10th Math - Similarity & Parallel Lines (Chapter 6: Triangles):**\n\n"
             "Key topics included in our notes:\n"

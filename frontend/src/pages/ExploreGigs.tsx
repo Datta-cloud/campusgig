@@ -269,13 +269,13 @@ export const ExploreGigs: React.FC = () => {
         <div className="max-w-7xl mx-auto space-y-6">
           <div className="text-center max-w-3xl mx-auto space-y-2">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-brand-50 text-brand-700 border border-brand-200">
-              <Sparkles className="w-3.5 h-3.5 text-brand-600" /> AI-Powered Freelance Marketplace
+              <Sparkles className="w-3.5 h-3.5 text-brand-600" /> Mentorship Led by Founder Datta Hadke
             </span>
             <h1 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">
-              Explore Verified Academic & Technical Gigs
+              Explore Academic Offerings &amp; Custom Sprints
             </h1>
             <p className="text-xs sm:text-sm text-slate-500">
-              Find verified mentors, capstone project architectures, and legitimate academic assistance tailored to your curriculum.
+              100% verified capstone project architectures, IEEE documentation, and school syllabus solutions personally guided by Datta Hadke.
             </p>
           </div>
 

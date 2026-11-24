@@ -60,6 +60,7 @@ class AcademicAssistantRequest(BaseModel):
     message: str
     student_type: Optional[str] = "college"
     context: Optional[dict] = None
+    history: Optional[List[dict]] = None
 
 
 class CreateOrderRequest(BaseModel):
@@ -288,10 +289,10 @@ def order_to_dict(order: Order) -> dict:
         "admin_notes": order.admin_notes,
         "student_notes": order.student_notes,
         "freelancer": {
-            "name": getattr(order, "freelancer_name", None) or "Dr. Rohit Sharma",
+            "name": getattr(order, "freelancer_name", None) or "Datta Hadke",
             "avatar": getattr(order, "freelancer_avatar", None) or "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",
-            "role": getattr(order, "freelancer_role", None) or "Senior Academic Mentor & Tech Lead",
-            "rating": 4.9,
+            "role": getattr(order, "freelancer_role", None) or "Founder & Lead Academic Mentor",
+            "rating": 5.0,
             "verified": True
         },
         "status_history": status_hist,
@@ -474,7 +475,12 @@ def refine_scope(req: RefineScopeRequest):
 def academic_assistant_chat(req: AcademicAssistantRequest):
     if not req.message or not req.message.strip():
         raise HTTPException(status_code=400, detail="Message cannot be empty")
-    return ask_academic_assistant(req.message.strip(), req.student_type or "college", req.context)
+    return ask_academic_assistant(
+        req.message.strip(),
+        req.student_type or "college",
+        req.context,
+        history=req.history
+    )
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -516,9 +522,9 @@ def create_order(
         payment_method=req.payment_method,
         student_notes=req.student_notes,
         status="pending_payment",
-        freelancer_name="Dr. Rohit Sharma" if req.category_key != "school_assignment" else "Pooja Hegde",
-        freelancer_avatar="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80" if req.category_key != "school_assignment" else "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=200&q=80",
-        freelancer_role="Senior Academic Mentor & Tech Lead" if req.category_key != "school_assignment" else "CBSE Math Educator",
+        freelancer_name="Datta Hadke",
+        freelancer_avatar="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",
+        freelancer_role="Founder & Lead Academic Mentor",
         status_history_json=json.dumps([
             {
                 "status": "pending_payment",

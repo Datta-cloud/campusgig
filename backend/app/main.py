@@ -193,9 +193,9 @@ def seed_database():
                 "reviews_count": 34,
                 "orders_count": 52,
                 "views_count": 210,
-                "mentor_name": "Dr. Rohit Sharma",
+                "mentor_name": "Datta Hadke",
                 "mentor_avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",
-                "mentor_role": "Senior ML Mentor & IIT Alum",
+                "mentor_role": "Founder & Lead Academic Mentor",
                 "mentor_verified": True,
                 "tags": ["Python", "Scikit-Learn", "Streamlit", "IEEE Paper", "Random Forest", "Machine Learning"]
             },
@@ -214,9 +214,9 @@ def seed_database():
                 "reviews_count": 29,
                 "orders_count": 44,
                 "views_count": 185,
-                "mentor_name": "Ananya Sen",
-                "mentor_avatar": "https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=200&q=80",
-                "mentor_role": "AI Research Scholar",
+                "mentor_name": "Datta Hadke",
+                "mentor_avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",
+                "mentor_role": "Founder & Lead Academic Mentor",
                 "mentor_verified": True,
                 "tags": ["Gemini 2.0", "LangChain", "FAISS", "FastAPI", "React", "Vector DB"]
             },
@@ -235,9 +235,9 @@ def seed_database():
                 "reviews_count": 22,
                 "orders_count": 31,
                 "views_count": 140,
-                "mentor_name": "Vikram Adve",
-                "mentor_avatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80",
-                "mentor_role": "Autonomous Systems Engineer",
+                "mentor_name": "Datta Hadke",
+                "mentor_avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",
+                "mentor_role": "Founder & Lead Academic Mentor",
                 "mentor_verified": True,
                 "tags": ["CrewAI", "Python", "Tool Calling", "Vector DB", "Agents", "Agentic AI"]
             },
@@ -256,9 +256,9 @@ def seed_database():
                 "reviews_count": 41,
                 "orders_count": 68,
                 "views_count": 320,
-                "mentor_name": "Kunal Verma",
-                "mentor_avatar": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80",
-                "mentor_role": "Full-Stack Architect",
+                "mentor_name": "Datta Hadke",
+                "mentor_avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",
+                "mentor_role": "Founder & Lead Academic Mentor",
                 "mentor_verified": True,
                 "tags": ["React", "FastAPI", "PostgreSQL", "JWT", "Tailwind", "WebRTC"]
             },
@@ -277,9 +277,9 @@ def seed_database():
                 "reviews_count": 38,
                 "orders_count": 59,
                 "views_count": 280,
-                "mentor_name": "Pooja Hegde",
-                "mentor_avatar": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=200&q=80",
-                "mentor_role": "CBSE Math Educator",
+                "mentor_name": "Datta Hadke",
+                "mentor_avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",
+                "mentor_role": "Founder & Lead Academic Mentor",
                 "mentor_verified": True,
                 "tags": ["Class 10th", "Mathematics", "BPT Theorem", "Exemplar", "Printable PDF", "CBSE"]
             },
@@ -298,9 +298,9 @@ def seed_database():
                 "reviews_count": 27,
                 "orders_count": 39,
                 "views_count": 160,
-                "mentor_name": "Siddharth Rao",
-                "mentor_avatar": "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=200&q=80",
-                "mentor_role": "Mobile App Lead",
+                "mentor_name": "Datta Hadke",
+                "mentor_avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",
+                "mentor_role": "Founder & Lead Academic Mentor",
                 "mentor_verified": True,
                 "tags": ["React Native", "Flutter", "Firebase", "APK Build", "Maps API"]
             },
@@ -319,9 +319,9 @@ def seed_database():
                 "reviews_count": 52,
                 "orders_count": 76,
                 "views_count": 340,
-                "mentor_name": "Neha Kulkarni",
-                "mentor_avatar": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80",
-                "mentor_role": "FAANG Software Engineer",
+                "mentor_name": "Datta Hadke",
+                "mentor_avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",
+                "mentor_role": "Founder & Lead Academic Mentor",
                 "mentor_verified": True,
                 "tags": ["Python", "DSA", "Tutoring", "LeetCode", "OOPs", "Algorithms"]
             },
@@ -340,9 +340,9 @@ def seed_database():
                 "reviews_count": 31,
                 "orders_count": 48,
                 "views_count": 210,
-                "mentor_name": "Dr. Rohit Sharma",
+                "mentor_name": "Datta Hadke",
                 "mentor_avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",
-                "mentor_role": "Senior Tech Lead & IIT Alum",
+                "mentor_role": "Founder & Lead Academic Mentor",
                 "mentor_verified": True,
                 "tags": ["Java", "Spring Boot", "Microservices", "OOPs", "Mentor", "REST API"]
             },
@@ -361,9 +361,9 @@ def seed_database():
                 "reviews_count": 45,
                 "orders_count": 82,
                 "views_count": 410,
-                "mentor_name": "Kunal Verma",
-                "mentor_avatar": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80",
-                "mentor_role": "Tech Recruiter & Architect",
+                "mentor_name": "Datta Hadke",
+                "mentor_avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",
+                "mentor_role": "Founder & Lead Academic Mentor",
                 "mentor_verified": True,
                 "tags": ["Resume", "Portfolio", "ATS", "Career", "Interview", "LinkedIn"]
             },
@@ -382,9 +382,9 @@ def seed_database():
                 "reviews_count": 26,
                 "orders_count": 35,
                 "views_count": 170,
-                "mentor_name": "Ananya Sen",
-                "mentor_avatar": "https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=200&q=80",
-                "mentor_role": "Data Science Specialist",
+                "mentor_name": "Datta Hadke",
+                "mentor_avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",
+                "mentor_role": "Founder & Lead Academic Mentor",
                 "mentor_verified": True,
                 "tags": ["PowerBI", "Python", "Pandas", "Streamlit", "Analytics", "ETL"]
             }
@@ -417,6 +417,10 @@ def seed_database():
                 )
                 db.add(new_gig)
             else:
+                existing_gig.mentor_name = g["mentor_name"]
+                existing_gig.mentor_role = g["mentor_role"]
+                existing_gig.mentor_avatar = g["mentor_avatar"]
+                existing_gig.mentor_verified = True
                 existing_gig.starting_price = g["starting_price"]
                 existing_gig.delivery_days = g["delivery_days"]
                 existing_gig.tags_json = json.dumps(g["tags"])
@@ -724,7 +728,12 @@ def global_academic_assistant(req: dict):
     message = (req.get("message") or "").strip()
     if not message:
         raise HTTPException(status_code=400, detail="Message cannot be empty")
-    return ask_academic_assistant(message, req.get("student_type", "college"), req.get("context"))
+    return ask_academic_assistant(
+        message,
+        req.get("student_type", "college"),
+        req.get("context"),
+        history=req.get("history")
+    )
 
 
 @app.get("/api/public/platform-stats")
