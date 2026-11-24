@@ -100,27 +100,43 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
         is_online=True
     )
 
-    # Process referral reward if code was provided (prevent self-referral)
+    # Process referral if code was provided (prevent self-referral)
     if req.referral_code:
         ref_code_clean = req.referral_code.strip().upper()
         referrer = db.query(User).filter(User.referral_code == ref_code_clean).first()
         if referrer and referrer.email.lower() != req.email.lower() and referrer.username.lower() != req.username.lower():
             user.referred_by = referrer.referral_code
-            referrer.wallet_balance = (referrer.wallet_balance or 0.0) + 250.0
+
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    if user.referred_by:
+        referrer = db.query(User).filter(User.referral_code == user.referred_by).first()
+        if referrer:
+            from app.models.referral import ReferralRecord, ReferralProgramConfig
+            cfg = db.query(ReferralProgramConfig).first()
+            reward_amt = cfg.referrer_reward if cfg else 250.0
+
+            ref_record = ReferralRecord(
+                referrer_id=referrer.id,
+                referred_id=user.id,
+                referral_code=user.referred_by,
+                status="pending",
+                reward_amount=reward_amt
+            )
+            db.add(ref_record)
+            db.commit()
 
             from app.services.notification_service import create_notification
             create_notification(
                 db=db,
                 user_id=referrer.id,
-                title="Campus Referral Reward Earned! 🎁",
-                message=f"Your friend {req.full_name or req.username} joined using your code {ref_code_clean}! ₹250 added to your wallet.",
+                title="Friend Joined via Referral! 🎁",
+                message=f"Your friend {req.full_name or req.username} signed up using your code {user.referred_by}! Your ₹{int(reward_amt)} reward is pending and will be credited once they book their first project.",
                 channel="in_app",
                 action_url="/dashboard"
             )
-
-    db.add(user)
-    db.commit()
-    db.refresh(user)
 
     token = create_access_token({"sub": str(user.id), "role": user.role})
     return {

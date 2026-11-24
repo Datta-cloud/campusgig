@@ -8,7 +8,11 @@ from fastapi.staticfiles import StaticFiles
 
 from sqlalchemy import text
 from app.database import engine, SessionLocal
-from app.models import User, PricingConfig, Order, ChatMessage, OrderAttachment, Course, CourseEnrollment, PaymentSubmission, WalkthroughSession
+from app.models import (
+    User, PricingConfig, Order, ChatMessage, OrderAttachment, Course,
+    CourseEnrollment, PaymentSubmission, WalkthroughSession, Gig,
+    ReferralRecord, WalletTransaction, ReferralProgramConfig
+)
 from app.database import Base
 from app.services.auth_service import hash_password
 from app.config import UPLOAD_DIR, UPLOAD_DIR_REFERENCES, UPLOAD_DIR_THUMBNAILS, CORS_ALLOWED_ORIGINS, DATABASE_URL
@@ -20,7 +24,7 @@ from slowapi.errors import RateLimitExceeded
 from app.limiter import limiter
 
 # Import routers
-from app.routers import auth, orders, chat, admin, courses, notifications, referrals
+from app.routers import auth, orders, chat, admin, courses, notifications, referrals, gigs
 
 
 DEFAULT_PRICING = [
@@ -172,8 +176,263 @@ def seed_database():
                 elif item["category_key"] == "school_assignment":
                     existing.add_ons_json = json.dumps(item["add_ons"])
 
+        # Seed Verified Database Gigs
+        initial_gigs = [
+            {
+                "id": "gig_ml_crop",
+                "category_key": "college_ml",
+                "category_name": "Machine Learning",
+                "domain": "College Engineering",
+                "title": "Crop Recommendation & Yield Prediction System with Streamlit Dashboard",
+                "description": "Production ML model using Random Forest & XGBoost with soil NPK feature analysis, confusion matrix evaluation, and interactive Streamlit UI.",
+                "thumbnail": "https://images.unsplash.com/photo-1574943320219-553eb213f72d?auto=format&fit=crop&w=800&q=80",
+                "starting_price": 1500.0,
+                "delivery_days": 3,
+                "delivery_time": "3–5 Days",
+                "rating": 4.9,
+                "reviews_count": 34,
+                "orders_count": 52,
+                "views_count": 210,
+                "mentor_name": "Dr. Rohit Sharma",
+                "mentor_avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",
+                "mentor_role": "Senior ML Mentor & IIT Alum",
+                "mentor_verified": True,
+                "tags": ["Python", "Scikit-Learn", "Streamlit", "IEEE Paper", "Random Forest", "Machine Learning"]
+            },
+            {
+                "id": "gig_genai_rag",
+                "category_key": "college_genai",
+                "category_name": "Generative AI",
+                "domain": "College Engineering",
+                "title": "Multimodal Medical Report Analyzer with Gemini 2.0 & LangChain RAG",
+                "description": "Enterprise-grade RAG pipeline using FAISS vector database, Gemini vision API for X-ray/PDF diagnostics, and citation verification.",
+                "thumbnail": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80",
+                "starting_price": 1800.0,
+                "delivery_days": 4,
+                "delivery_time": "3–5 Days",
+                "rating": 5.0,
+                "reviews_count": 29,
+                "orders_count": 44,
+                "views_count": 185,
+                "mentor_name": "Ananya Sen",
+                "mentor_avatar": "https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=200&q=80",
+                "mentor_role": "AI Research Scholar",
+                "mentor_verified": True,
+                "tags": ["Gemini 2.0", "LangChain", "FAISS", "FastAPI", "React", "Vector DB"]
+            },
+            {
+                "id": "gig_agentic_ai",
+                "category_key": "college_agentic",
+                "category_name": "Agentic AI",
+                "domain": "College Engineering",
+                "title": "Autonomous Multi-Agent Market Intelligence & Research Engine",
+                "description": "Collaborative agentic workflow built with CrewAI / AutoGen with real-time web scraping tools, markdown reporting, and confidence scoring.",
+                "thumbnail": "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=800&q=80",
+                "starting_price": 2200.0,
+                "delivery_days": 4,
+                "delivery_time": "4–6 Days",
+                "rating": 4.9,
+                "reviews_count": 22,
+                "orders_count": 31,
+                "views_count": 140,
+                "mentor_name": "Vikram Adve",
+                "mentor_avatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80",
+                "mentor_role": "Autonomous Systems Engineer",
+                "mentor_verified": True,
+                "tags": ["CrewAI", "Python", "Tool Calling", "Vector DB", "Agents", "Agentic AI"]
+            },
+            {
+                "id": "gig_fullstack_hospital",
+                "category_key": "college_fullstack",
+                "category_name": "Full-Stack Dev",
+                "domain": "College Engineering",
+                "title": "Hospital Management & Patient Appointment Portal with Tele-Consult",
+                "description": "Full-stack web application with role-based JWT auth, PostgreSQL migrations, WebRTC tele-consultation rooms, and Razorpay billing.",
+                "thumbnail": "https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&w=800&q=80",
+                "starting_price": 1600.0,
+                "delivery_days": 4,
+                "delivery_time": "3–5 Days",
+                "rating": 4.8,
+                "reviews_count": 41,
+                "orders_count": 68,
+                "views_count": 320,
+                "mentor_name": "Kunal Verma",
+                "mentor_avatar": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80",
+                "mentor_role": "Full-Stack Architect",
+                "mentor_verified": True,
+                "tags": ["React", "FastAPI", "PostgreSQL", "JWT", "Tailwind", "WebRTC"]
+            },
+            {
+                "id": "gig_school_math",
+                "category_key": "school_assignment",
+                "category_name": "School Assignment",
+                "domain": "School (Class 1-10th)",
+                "title": "Class 10th Mathematics: Triangles, Similarity & Theorem Proofs Notes",
+                "description": "High-yield printable A4 notes covering Basic Proportionality Theorem, similarity criteria, 15+ solved exemplar problems, and geometric diagrams.",
+                "thumbnail": "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=800&q=80",
+                "starting_price": 500.0,
+                "delivery_days": 2,
+                "delivery_time": "2–3 Days",
+                "rating": 5.0,
+                "reviews_count": 38,
+                "orders_count": 59,
+                "views_count": 280,
+                "mentor_name": "Pooja Hegde",
+                "mentor_avatar": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=200&q=80",
+                "mentor_role": "CBSE Math Educator",
+                "mentor_verified": True,
+                "tags": ["Class 10th", "Mathematics", "BPT Theorem", "Exemplar", "Printable PDF", "CBSE"]
+            },
+            {
+                "id": "gig_android_food",
+                "category_key": "college_android",
+                "category_name": "Android Mobile App",
+                "domain": "College Engineering",
+                "title": "Campus Food Delivery & Mess Attendance Mobile App with Live GPS",
+                "description": "Modern cross-platform mobile application built with React Native / Flutter featuring Firebase authentication, SQLite caching, and live GPS map tracking.",
+                "thumbnail": "https://images.unsplash.com/photo-1526367790999-0150786686a2?auto=format&fit=crop&w=800&q=80",
+                "starting_price": 1700.0,
+                "delivery_days": 4,
+                "delivery_time": "3–5 Days",
+                "rating": 4.9,
+                "reviews_count": 27,
+                "orders_count": 39,
+                "views_count": 160,
+                "mentor_name": "Siddharth Rao",
+                "mentor_avatar": "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=200&q=80",
+                "mentor_role": "Mobile App Lead",
+                "mentor_verified": True,
+                "tags": ["React Native", "Flutter", "Firebase", "APK Build", "Maps API"]
+            },
+            {
+                "id": "gig_python_tutor",
+                "category_key": "college_backend",
+                "category_name": "Technical Mentoring",
+                "domain": "Technical Mentoring",
+                "title": "Python Tutoring, Data Structures & Algorithm 1-on-1 Mentorship",
+                "description": "Live 1-on-1 tutoring sessions solving LeetCode DSA, Python OOP principles, and clean code optimization for technical placement exams.",
+                "thumbnail": "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=800&q=80",
+                "starting_price": 450.0,
+                "delivery_days": 1,
+                "delivery_time": "1–2 Days",
+                "rating": 4.9,
+                "reviews_count": 52,
+                "orders_count": 76,
+                "views_count": 340,
+                "mentor_name": "Neha Kulkarni",
+                "mentor_avatar": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80",
+                "mentor_role": "FAANG Software Engineer",
+                "mentor_verified": True,
+                "tags": ["Python", "DSA", "Tutoring", "LeetCode", "OOPs", "Algorithms"]
+            },
+            {
+                "id": "gig_java_mentor",
+                "category_key": "college_backend",
+                "category_name": "Technical Mentoring",
+                "domain": "Technical Mentoring",
+                "title": "Java Programming Mentor: Spring Boot, Microservices & OOPs",
+                "description": "End-to-end Java guidance covering core OOP concepts, multithreading, Spring Boot REST architecture, and live viva interview defense.",
+                "thumbnail": "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&w=800&q=80",
+                "starting_price": 800.0,
+                "delivery_days": 2,
+                "delivery_time": "2–3 Days",
+                "rating": 4.8,
+                "reviews_count": 31,
+                "orders_count": 48,
+                "views_count": 210,
+                "mentor_name": "Dr. Rohit Sharma",
+                "mentor_avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",
+                "mentor_role": "Senior Tech Lead & IIT Alum",
+                "mentor_verified": True,
+                "tags": ["Java", "Spring Boot", "Microservices", "OOPs", "Mentor", "REST API"]
+            },
+            {
+                "id": "gig_resume_review",
+                "category_key": "college_other",
+                "category_name": "Career Guidance",
+                "domain": "Technical Mentoring",
+                "title": "ATS Tech Resume & Portfolio Review with 48-Hour Turnaround",
+                "description": "Comprehensive resume audit by senior software engineers. Get ATS keyword optimization, GitHub project framing, and 1-on-1 video feedback.",
+                "thumbnail": "https://images.unsplash.com/photo-1586281380349-632531db7ed4?auto=format&fit=crop&w=800&q=80",
+                "starting_price": 400.0,
+                "delivery_days": 2,
+                "delivery_time": "2 Days",
+                "rating": 5.0,
+                "reviews_count": 45,
+                "orders_count": 82,
+                "views_count": 410,
+                "mentor_name": "Kunal Verma",
+                "mentor_avatar": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80",
+                "mentor_role": "Tech Recruiter & Architect",
+                "mentor_verified": True,
+                "tags": ["Resume", "Portfolio", "ATS", "Career", "Interview", "LinkedIn"]
+            },
+            {
+                "id": "gig_data_analytics",
+                "category_key": "college_ds",
+                "category_name": "Data Science",
+                "domain": "College Engineering",
+                "title": "PowerBI & Streamlit Executive Business Analytics Dashboard",
+                "description": "Interactive data visualization dashboard with automated ETL pipelines, predictive trend graphs, and comprehensive executive summary report.",
+                "thumbnail": "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80",
+                "starting_price": 1400.0,
+                "delivery_days": 3,
+                "delivery_time": "3–5 Days",
+                "rating": 4.9,
+                "reviews_count": 26,
+                "orders_count": 35,
+                "views_count": 170,
+                "mentor_name": "Ananya Sen",
+                "mentor_avatar": "https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=200&q=80",
+                "mentor_role": "Data Science Specialist",
+                "mentor_verified": True,
+                "tags": ["PowerBI", "Python", "Pandas", "Streamlit", "Analytics", "ETL"]
+            }
+        ]
+
+        for g in initial_gigs:
+            existing_gig = db.query(Gig).filter(Gig.id == g["id"]).first()
+            if not existing_gig:
+                new_gig = Gig(
+                    id=g["id"],
+                    category_key=g["category_key"],
+                    category_name=g["category_name"],
+                    domain=g["domain"],
+                    title=g["title"],
+                    description=g["description"],
+                    thumbnail=g["thumbnail"],
+                    starting_price=g["starting_price"],
+                    delivery_days=g["delivery_days"],
+                    delivery_time=g["delivery_time"],
+                    rating=g["rating"],
+                    reviews_count=g["reviews_count"],
+                    orders_count=g["orders_count"],
+                    views_count=g["views_count"],
+                    mentor_name=g["mentor_name"],
+                    mentor_avatar=g["mentor_avatar"],
+                    mentor_role=g["mentor_role"],
+                    mentor_verified=g["mentor_verified"],
+                    tags_json=json.dumps(g["tags"]),
+                    is_active=True
+                )
+                db.add(new_gig)
+            else:
+                existing_gig.starting_price = g["starting_price"]
+                existing_gig.delivery_days = g["delivery_days"]
+                existing_gig.tags_json = json.dumps(g["tags"])
+
+        # Seed Referral Program Config
+        ref_cfg = db.query(ReferralProgramConfig).first()
+        if not ref_cfg:
+            db.add(ReferralProgramConfig(
+                is_enabled=True,
+                referrer_reward=250.0,
+                referred_discount=200.0,
+                min_qualifying_amount=500.0
+            ))
+
         db.commit()
-        print("✓ Pricing configs and admin verified")
+        print("✓ Pricing configs, gigs, and admin verified")
     except Exception as e:
         db.rollback()
         print(f"Seed error: {e}")
@@ -206,6 +465,10 @@ async def lifespan(app: FastAPI):
             ("orders", "plagiarism_report_url", "VARCHAR"),
             ("order_group_members", "qr_token", "VARCHAR"),
             ("users", "wallet_balance", "FLOAT DEFAULT 0.0"),
+            ("orders", "freelancer_name", "VARCHAR DEFAULT 'Dr. Rohit Sharma'"),
+            ("orders", "freelancer_avatar", "VARCHAR"),
+            ("orders", "freelancer_role", "VARCHAR DEFAULT 'Senior Academic Mentor'"),
+            ("orders", "status_history_json", "TEXT"),
         ]
         for table, col, col_def in columns_to_add:
             try:
@@ -417,6 +680,7 @@ app.include_router(admin.router)
 app.include_router(courses.router)
 app.include_router(notifications.router)
 app.include_router(referrals.router)
+app.include_router(gigs.router)
 
 
 @app.get("/api/verify-certificate/{cert_id}")
@@ -492,6 +756,44 @@ def get_public_platform_stats():
 
 @app.get("/api/public/featured-gigs")
 def get_public_featured_gigs():
+    db = SessionLocal()
+    try:
+        from app.models.gig import Gig
+        db_gigs = db.query(Gig).filter(Gig.is_active == True).order_by(Gig.rating.desc(), Gig.orders_count.desc()).all()
+        if db_gigs:
+            res = []
+            for g in db_gigs:
+                try:
+                    tags = json.loads(g.tags_json) if g.tags_json else []
+                except Exception:
+                    tags = []
+                res.append({
+                    "id": g.id,
+                    "category_key": g.category_key,
+                    "category_name": g.category_name,
+                    "title": g.title,
+                    "domain": g.domain,
+                    "description": g.description,
+                    "thumbnail": g.thumbnail,
+                    "starting_price": g.starting_price,
+                    "delivery_time": g.delivery_time,
+                    "rating": g.rating,
+                    "reviews_count": g.reviews_count,
+                    "mentor": {
+                        "name": g.mentor_name,
+                        "avatar": g.mentor_avatar,
+                        "role": g.mentor_role,
+                        "verified": g.mentor_verified
+                    },
+                    "tags": tags
+                })
+            return res
+    except Exception as e:
+        print(f"Featured gigs query exception: {e}")
+    finally:
+        db.close()
+
+    # Fallback if DB is empty
     return [
         {
             "id": "gig_ml_crop",
@@ -512,106 +814,6 @@ def get_public_featured_gigs():
                 "verified": True
             },
             "tags": ["Python", "Scikit-Learn", "Streamlit", "IEEE Paper", "Dataset"]
-        },
-        {
-            "id": "gig_genai_rag",
-            "category_key": "college_genai",
-            "category_name": "Generative AI",
-            "title": "Multimodal Medical Report Analyzer with Gemini 2.0 & LangChain RAG",
-            "domain": "College Engineering",
-            "description": "Enterprise-grade RAG pipeline using FAISS vector database, Gemini vision API for X-ray/PDF diagnostics, and citation verification.",
-            "thumbnail": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80",
-            "starting_price": 1800,
-            "delivery_time": "3–5 Days",
-            "rating": 5.0,
-            "reviews_count": 29,
-            "mentor": {
-                "name": "Ananya Sen",
-                "avatar": "https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=200&q=80",
-                "role": "AI Research Scholar",
-                "verified": True
-            },
-            "tags": ["Gemini 2.0", "LangChain", "FAISS", "FastAPI", "React"]
-        },
-        {
-            "id": "gig_agentic_ai",
-            "category_key": "college_agentic",
-            "category_name": "Agentic AI",
-            "title": "Autonomous Multi-Agent Market Intelligence & Research Engine",
-            "domain": "College Engineering",
-            "description": "Collaborative agentic workflow built with CrewAI / AutoGen with real-time web scraping tools, markdown reporting, and confidence scoring.",
-            "thumbnail": "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=800&q=80",
-            "starting_price": 2200,
-            "delivery_time": "4–6 Days",
-            "rating": 4.9,
-            "reviews_count": 22,
-            "mentor": {
-                "name": "Vikram Adve",
-                "avatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80",
-                "role": "Autonomous Systems Engineer",
-                "verified": True
-            },
-            "tags": ["CrewAI", "Python", "Tool Calling", "Vector DB", "Agents"]
-        },
-        {
-            "id": "gig_fullstack_hospital",
-            "category_key": "college_fullstack",
-            "category_name": "Full-Stack Dev",
-            "title": "Hospital Management & Patient Appointment Portal with Tele-Consult",
-            "domain": "College Engineering",
-            "description": "Full-stack web application with role-based JWT auth, PostgreSQL migrations, WebRTC tele-consultation rooms, and Razorpay billing.",
-            "thumbnail": "https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&w=800&q=80",
-            "starting_price": 1600,
-            "delivery_time": "3–5 Days",
-            "rating": 4.8,
-            "reviews_count": 41,
-            "mentor": {
-                "name": "Kunal Verma",
-                "avatar": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80",
-                "role": "Full-Stack Architect",
-                "verified": True
-            },
-            "tags": ["React", "FastAPI", "PostgreSQL", "JWT", "Tailwind"]
-        },
-        {
-            "id": "gig_school_math",
-            "category_key": "school_assignment",
-            "category_name": "School Assignment",
-            "title": "Class 10th Mathematics: Triangles, Similarity & Theorem Proofs Notes",
-            "domain": "School (Class 1-10th)",
-            "description": "High-yield printable A4 notes covering Basic Proportionality Theorem, similarity criteria, 15+ solved exemplar problems, and geometric diagrams.",
-            "thumbnail": "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=800&q=80",
-            "starting_price": 500,
-            "delivery_time": "2–3 Days",
-            "rating": 5.0,
-            "reviews_count": 38,
-            "mentor": {
-                "name": "Pooja Hegde",
-                "avatar": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=200&q=80",
-                "role": "CBSE Math Educator",
-                "verified": True
-            },
-            "tags": ["Class 10th", "Mathematics", "BPT Theorem", "Exemplar", "Printable PDF"]
-        },
-        {
-            "id": "gig_android_food",
-            "category_key": "college_android",
-            "category_name": "Android Mobile App",
-            "title": "Campus Food Delivery & Mess Attendance Mobile App with Live GPS",
-            "domain": "College Engineering",
-            "description": "Modern cross-platform mobile application built with React Native / Flutter featuring Firebase authentication, SQLite caching, and live GPS map tracking.",
-            "thumbnail": "https://images.unsplash.com/photo-1526367790999-0150786686a2?auto=format&fit=crop&w=800&q=80",
-            "starting_price": 1700,
-            "delivery_time": "3–5 Days",
-            "rating": 4.9,
-            "reviews_count": 27,
-            "mentor": {
-                "name": "Siddharth Rao",
-                "avatar": "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=200&q=80",
-                "role": "Mobile App Lead",
-                "verified": True
-            },
-            "tags": ["React Native", "Flutter", "Firebase", "APK Build", "Maps API"]
         }
     ]
 

@@ -551,6 +551,11 @@ def verify_order_payment(
                     order.certificate_issued_at = datetime.utcnow()
                 title = "Balance Payment Verified & Deliverables Unlocked! 🎉"
                 msg = f"Your final balance payment of ₹{sub_amount} (UTR: {sub_utr}) for {order.order_number} has been verified. All deliverables are 100% unlocked!"
+
+                from app.routers.orders import append_order_status_history
+                from app.services.referral_service import process_qualifying_referral
+                append_order_status_history(order, "completed", f"Balance payment of ₹{sub_amount} verified by admin (UTR: {sub_utr}). Order completed.", actor="admin")
+                process_qualifying_referral(db, order)
             else:
                 # Partial balance payment approved: remaining balance still due!
                 has_deliverables = any(att.file_type == "deliverable" for att in (order.attachments or []))
@@ -558,12 +563,19 @@ def verify_order_payment(
                 order.payment_verified = False
                 title = f"Partial Payment of ₹{sub_amount} Verified! 💳"
                 msg = f"Your partial payment of ₹{sub_amount} (UTR: {sub_utr}) for {order.order_number} has been verified. Remaining balance: ₹{order.balance_amount}. You can pay the rest anytime."
+                from app.routers.orders import append_order_status_history
+                append_order_status_history(order, order.status, f"Partial balance of ₹{sub_amount} verified. Remaining due: ₹{order.balance_amount}.", actor="admin")
         else:
             order.status = "advance_paid"
             order.payment_verified = True
             order.advance_paid_at = datetime.utcnow()
             title = "Advance Payment Verified & Development Started! 🚀"
             msg = f"Your advance payment of ₹{sub_amount} (UTR: {sub_utr}) for {order.order_number} has been verified in our bank account. Development is in progress!"
+
+            from app.routers.orders import append_order_status_history
+            from app.services.referral_service import process_qualifying_referral
+            append_order_status_history(order, "advance_paid", f"Advance payment of ₹{sub_amount} verified by admin (UTR: {sub_utr}). Project accepted and in development.", actor="admin")
+            process_qualifying_referral(db, order)
 
         if pending_sub:
             pending_sub.status = "approved"

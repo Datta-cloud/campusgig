@@ -81,6 +81,20 @@ export interface Order {
   deployed_url?: string;
   deployed_at?: string;
   group_members?: OrderGroupMember[];
+  freelancer?: {
+    name: string;
+    avatar: string;
+    role: string;
+    rating: number;
+    verified: boolean;
+  };
+  status_history?: Array<{
+    status: string;
+    title: string;
+    note: string;
+    timestamp: string;
+    actor: string;
+  }>;
   created_at: string;
   messages?: ChatMessage[];
   attachments?: OrderAttachment[];

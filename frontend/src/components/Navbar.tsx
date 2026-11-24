@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LogOut, Zap, Gift } from 'lucide-react';
+import { LogOut, Zap, Gift, Compass, Plus, Package } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import OnlineIndicator from './OnlineIndicator';
 import NotificationBell from './NotificationBell';
@@ -22,12 +22,35 @@ const Navbar: React.FC = () => {
       <nav className="bg-white dark:bg-slate-900 border-b border-gray-100 dark:border-slate-800 shadow-sm sticky top-0 z-40 transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <Link to="/dashboard" className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center">
-                <Zap className="w-4 h-4 text-white" />
+            <div className="flex items-center gap-6">
+              <Link to="/dashboard" className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center">
+                  <Zap className="w-4 h-4 text-white" />
+                </div>
+                <span className="font-bold text-gray-900 dark:text-white text-lg">CampusGig</span>
+              </Link>
+
+              <div className="hidden sm:flex items-center gap-1 pl-2 border-l border-slate-200 dark:border-slate-800">
+                <Link
+                  to="/explore"
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-brand-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1.5"
+                >
+                  <Compass className="w-4 h-4 text-brand-600" /> Explore Gigs
+                </Link>
+                <Link
+                  to="/dashboard"
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-brand-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                >
+                  My Orders
+                </Link>
+                <Link
+                  to="/order/new"
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-brand-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1"
+                >
+                  <Plus className="w-3.5 h-3.5" /> New Project
+                </Link>
               </div>
-              <span className="font-bold text-gray-900 dark:text-white text-lg">CampusGig</span>
-            </Link>
+            </div>
 
             <div className="flex items-center gap-2 sm:gap-3">
               {user?.role === 'student' && (

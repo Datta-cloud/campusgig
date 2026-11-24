@@ -5,7 +5,7 @@ import {
   AlertCircle, FileText, QrCode, RefreshCw, Sparkles, Layers, Check,
   Upload, X, Package, Presentation, GraduationCap, Video, Eye, Award, Zap,
   Play, GitBranch, Users, Gift, Share2, Rocket, Network, FileCode, MessageSquare, ShieldAlert, Lock,
-  Unlock, ChevronRight, FileCheck
+  Unlock, ChevronRight, FileCheck, User, Star, Calendar, History, UserCheck
 } from 'lucide-react';
 import api, { getErrorMessage } from '../services/api';
 import { Order } from '../types';
@@ -279,64 +279,256 @@ export const OrderDetail: React.FC = () => {
           </div>
         </div>
 
-        {/* Milestone Steps Bar */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">Milestone Progress</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-            
-            <div className="p-3.5 rounded-xl border bg-emerald-50 border-emerald-200">
-              <span className="text-[10px] font-bold uppercase text-emerald-700 block">Milestone 1</span>
-              <span className="text-xs font-bold text-emerald-900 flex items-center gap-1 mt-1">
-                <Check className="w-4 h-4 text-emerald-600" /> 30% Advance (₹{order.advance_amount})
-              </span>
-              <span className="text-[10px] text-emerald-600">Locked & Verified</span>
+        {/* Comprehensive Order Progress Tracking & Visual Lifecycle Timeline */}
+        <div className="bg-white p-6 sm:p-7 rounded-3xl border border-slate-200/80 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Live Order Lifecycle Progress</span>
+              </div>
+              <h3 className="text-lg font-black text-slate-900 mt-0.5">
+                Order Tracking & Milestone Timeline
+              </h3>
             </div>
-
-            <div className={`p-3.5 rounded-xl border ${
-              ['in_progress', 'ready_for_review', 'completed', 'balance_submitted'].includes(order.status)
-                ? 'bg-blue-50 border-blue-200 text-blue-900'
-                : 'bg-slate-50 border-slate-200 text-slate-400'
-            }`}>
-              <span className="text-[10px] font-bold uppercase block">Milestone 2</span>
-              <span className="text-xs font-bold flex items-center gap-1 mt-1">
-                <Clock className="w-4 h-4" /> Development & Sprints
-              </span>
-              <span className="text-[10px]">Code, Report, PPT build</span>
-            </div>
-
-            <div className={`p-3.5 rounded-xl border ${
-              ['ready_for_review', 'completed', 'balance_submitted'].includes(order.status)
-                ? 'bg-purple-50 border-purple-200 text-purple-900'
-                : 'bg-slate-50 border-slate-200 text-slate-400'
-            }`}>
-              <span className="text-[10px] font-bold uppercase block">Milestone 3</span>
-              <span className="text-xs font-bold flex items-center gap-1 mt-1">
-                <Sparkles className="w-4 h-4" /> Demo Review
-              </span>
-              <span className="text-[10px]">Preview verification</span>
-            </div>
-
-            <div className={`p-3.5 rounded-xl border ${
-              order.status === 'completed'
-                ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                : order.status === 'balance_submitted'
-                ? 'bg-amber-50 border-amber-200 text-amber-900'
-                : 'bg-slate-50 border-slate-200 text-slate-400'
-            }`}>
-              <span className="text-[10px] font-bold uppercase block">Milestone 4</span>
-              <span className="text-xs font-bold flex items-center gap-1 mt-1">
-                {order.status === 'balance_submitted' ? (
-                  <Clock className="w-4 h-4 text-amber-600 animate-pulse" />
-                ) : (
-                  <ShieldCheck className="w-4 h-4" />
-                )}
-                {order.status === 'completed' ? '70% Balance Settled' : order.status === 'balance_submitted' ? 'Balance Under Verification' : '70% Balance & Unlock'}
-              </span>
-              <span className="text-[10px]">
-                {order.status === 'completed' ? 'All deliverables 100% unlocked' : order.status === 'balance_submitted' ? 'Admin verifying bank statement' : 'Final deliverables downloaded'}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-slate-500">Target Delivery:</span>
+              <span className="text-xs font-bold text-slate-900 bg-slate-100 px-3 py-1 rounded-full border border-slate-200 flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-brand-600" />
+                {order.deadline ? new Date(order.deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '5-7 Days'}
               </span>
             </div>
+          </div>
 
+          {/* Connected Lifecycle Stepper */}
+          <div className="relative">
+            {/* Stepper Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              {[
+                {
+                  id: 'placed',
+                  title: 'Order Placed',
+                  desc: 'Requirements & 30% advance submitted',
+                  isDone: ['advance_paid', 'in_progress', 'ready_for_review', 'completed', 'balance_submitted'].includes(order.status),
+                  isActive: ['pending_payment', 'payment_submitted'].includes(order.status),
+                  stepNum: 1,
+                },
+                {
+                  id: 'accepted',
+                  title: 'Mentor Accepted',
+                  desc: 'Payment confirmed & academic mentor assigned',
+                  isDone: ['in_progress', 'ready_for_review', 'completed', 'balance_submitted'].includes(order.status),
+                  isActive: order.status === 'advance_paid',
+                  stepNum: 2,
+                },
+                {
+                  id: 'progress',
+                  title: 'In Progress',
+                  desc: 'Research, development & draft review',
+                  isDone: ['ready_for_review', 'completed', 'balance_submitted'].includes(order.status),
+                  isActive: order.status === 'in_progress',
+                  stepNum: 3,
+                },
+                {
+                  id: 'delivered',
+                  title: 'Delivered / Demo',
+                  desc: 'Deliverables uploaded for inspection',
+                  isDone: ['completed', 'balance_submitted'].includes(order.status),
+                  isActive: ['ready_for_review', 'revision_requested'].includes(order.status),
+                  stepNum: 4,
+                },
+                {
+                  id: 'completed',
+                  title: 'Completed',
+                  desc: 'Final settlement & all assets unlocked',
+                  isDone: order.status === 'completed',
+                  isActive: order.status === 'balance_submitted',
+                  stepNum: 5,
+                },
+              ].map(step => {
+                return (
+                  <div
+                    key={step.id}
+                    className={`p-4 rounded-2xl border transition-all duration-200 ${
+                      step.isDone
+                        ? 'border-emerald-200 bg-emerald-50/60'
+                        : step.isActive
+                        ? 'border-brand-500 bg-brand-50/70 shadow-sm ring-2 ring-brand-100'
+                        : 'border-slate-200 bg-slate-50/50 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span
+                        className={`w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center ${
+                          step.isDone
+                            ? 'bg-emerald-600 text-white'
+                            : step.isActive
+                            ? 'bg-brand-600 text-white animate-pulse'
+                            : 'bg-slate-200 text-slate-600'
+                        }`}
+                      >
+                        {step.isDone ? <Check className="w-3.5 h-3.5" /> : step.stepNum}
+                      </span>
+                      {step.isDone && (
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
+                          Done
+                        </span>
+                      )}
+                      {step.isActive && (
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-brand-700 bg-brand-100 px-2 py-0.5 rounded">
+                          Active
+                        </span>
+                      )}
+                    </div>
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">
+                      {step.title}
+                    </h4>
+                    <p className="text-[11px] text-slate-500 mt-1 line-clamp-2">
+                      {step.desc}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Special Notification for Revision Requested */}
+            {order.status === 'revision_requested' && (
+              <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-2.5 text-xs text-amber-900">
+                <RefreshCw className="w-4 h-4 text-amber-600 animate-spin shrink-0" />
+                <span>
+                  <strong>Revision In Progress:</strong> Your feedback is currently being incorporated by the mentor. You will receive an updated preview soon.
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Buyer & Freelancer Information Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+            {/* Assigned Freelancer / Mentor Card */}
+            <div className="p-4 sm:p-5 rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white flex flex-col justify-between">
+              <div className="flex items-start gap-3.5">
+                <div className="relative">
+                  <img
+                    src={order.freelancer?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'}
+                    alt={order.freelancer?.name || 'Academic Mentor'}
+                    className="w-13 h-13 rounded-2xl object-cover border-2 border-white shadow-sm ring-1 ring-slate-200"
+                    style={{ width: '52px', height: '52px' }}
+                  />
+                  <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white" title="Online & Active" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-brand-700 bg-brand-50 px-2 py-0.5 rounded border border-brand-200">
+                      Assigned Mentor
+                    </span>
+                    <span className="flex items-center text-xs font-bold text-amber-600">
+                      <Star className="w-3 h-3 fill-amber-400 text-amber-400 mr-0.5" />
+                      {order.freelancer?.rating || '4.9'}
+                    </span>
+                  </div>
+                  <h4 className="font-bold text-slate-900 text-sm sm:text-base mt-1 truncate">
+                    {order.freelancer?.name || 'Dr. Rohit Sharma'}
+                  </h4>
+                  <p className="text-xs text-slate-500 truncate">
+                    {order.freelancer?.role || 'Senior Academic Mentor & Tech Lead'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                <div className="text-[11px] text-slate-500">
+                  <span className="font-semibold text-slate-700">Verified Mentor:</span> Top 1% Verified Expert
+                </div>
+                <Link
+                  to={user?.role === 'admin' ? `/admin/chat/${order.id}` : `/chat/${order.id}`}
+                  className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-xl shadow-sm flex items-center gap-1.5 transition-all shrink-0"
+                >
+                  <MessageCircle className="w-3.5 h-3.5" /> Chat with Mentor
+                </Link>
+              </div>
+            </div>
+
+            {/* Buyer / Student Information Card */}
+            <div className="p-4 sm:p-5 rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                    Buyer Profile
+                  </span>
+                  <span className="text-xs font-bold text-slate-500">
+                    ID: #{order.order_number}
+                  </span>
+                </div>
+                <h4 className="font-bold text-slate-900 text-sm sm:text-base">
+                  {order.student?.full_name || user?.full_name || 'Datta Hadke'}
+                </h4>
+                <div className="mt-1 space-y-0.5 text-xs text-slate-500">
+                  <p>
+                    <strong className="text-slate-700 font-medium">Academic Stream:</strong>{' '}
+                    {order.student_type === 'school' ? 'School Student (Board Prep)' : 'College / Degree Engineering'}
+                  </p>
+                  <p className="truncate">
+                    <strong className="text-slate-700 font-medium">College/Branch:</strong>{' '}
+                    {order.student?.college_branch || order.student?.college_name || order.student?.school_class || 'Computer Science & Engineering'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                <span>Speed: <strong className="text-slate-700 font-semibold">{order.urgency === 'super_express' ? 'Super Express (24h)' : order.urgency === 'express' ? 'Express (48h)' : 'Normal (5-7 Days)'}</strong></span>
+                <span>Placed on {new Date(order.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Status Update History Log Audit Trail */}
+          <div className="pt-2 border-t border-slate-100">
+            <details className="group">
+              <summary className="cursor-pointer list-none flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors">
+                <span className="text-xs font-bold text-slate-700 flex items-center gap-2">
+                  <History className="w-4 h-4 text-brand-600" />
+                  Status Update History & Audit Trail ({order.status_history?.length || 1} Events)
+                </span>
+                <span className="text-xs font-semibold text-brand-600 group-open:rotate-180 transition-transform">
+                  ▼
+                </span>
+              </summary>
+              <div className="mt-3 space-y-2.5 pl-2 pr-1">
+                {(order.status_history && order.status_history.length > 0 ? order.status_history : [
+                  {
+                    status: order.status,
+                    title: 'Order Created',
+                    note: 'Project initialized and registration completed in CampusGig AI system.',
+                    timestamp: order.created_at,
+                    actor: 'Student'
+                  }
+                ]).map((hist, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-start gap-3 p-3 rounded-xl border border-slate-100 bg-white text-xs shadow-2xs"
+                  >
+                    <div className="w-2 h-2 rounded-full bg-brand-600 mt-1.5 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-slate-800">{hist.title}</span>
+                        <span className="text-[10px] text-slate-400">
+                          {new Date(hist.timestamp).toLocaleString('en-IN', {
+                            day: 'numeric',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                      </div>
+                      <p className="text-slate-600 mt-0.5">{hist.note}</p>
+                      <span className="inline-block mt-1 text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+                        Action by: {hist.actor}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </details>
           </div>
         </div>
 

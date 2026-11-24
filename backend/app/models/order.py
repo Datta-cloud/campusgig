@@ -35,6 +35,14 @@ class Order(Base):
     admin_notes = Column(Text, nullable=True)
     student_notes = Column(Text, nullable=True)
 
+    # Freelancer / Mentor Assignment
+    freelancer_name = Column(String, nullable=True, default="Dr. Rohit Sharma")
+    freelancer_avatar = Column(String, nullable=True, default="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80")
+    freelancer_role = Column(String, nullable=True, default="Senior Academic Mentor & Tech Lead")
+
+    # Order Lifecycle Progress Tracking
+    status_history_json = Column(Text, nullable=True)  # JSON list of lifecycle event logs
+
     # Revisions workflow
     revision_count = Column(Integer, default=0)
     max_revisions = Column(Integer, default=2)

@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import LandingPage from './pages/LandingPage';
 import StudentDashboard from './pages/StudentDashboard';
+import ExploreGigs from './pages/ExploreGigs';
 import OrderWizard from './pages/OrderWizard';
 import OrderDetail from './pages/OrderDetail';
 import ChatPage from './pages/ChatPage';
@@ -14,6 +15,7 @@ import AdminOrders from './pages/AdminOrders';
 import AdminMeetings from './pages/AdminMeetings';
 import AdminPricing from './pages/AdminPricing';
 import AdminStudents from './pages/AdminStudents';
+import AdminReferrals from './pages/AdminReferrals';
 import Navbar from './components/Navbar';
 import AdminSidebar from './components/AdminSidebar';
 import LoadingSpinner from './components/LoadingSpinner';
@@ -87,8 +89,10 @@ export const App: React.FC = () => {
         <BrowserRouter>
           <AppLayout>
           <Routes>
-            {/* Public Landing */}
+            {/* Public Landing & Explore */}
             <Route path="/" element={<LandingPage />} />
+            <Route path="/explore" element={<ExploreGigs />} />
+            <Route path="/gigs" element={<ExploreGigs />} />
 
             {/* Student Protected Routes */}
             <Route
@@ -188,6 +192,14 @@ export const App: React.FC = () => {
               element={
                 <ProtectedRoute adminOnly>
                   <AdminStudents />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/referrals"
+              element={
+                <ProtectedRoute adminOnly>
+                  <AdminReferrals />
                 </ProtectedRoute>
               }
             />

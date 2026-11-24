@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   TrendingUp, Users, ShoppingBag, Clock, CheckCircle, IndianRupee,
-  MessageCircle, ExternalLink, ArrowUpRight, BarChart2, Shield, Video
+  MessageCircle, ExternalLink, ArrowUpRight, BarChart2, Shield, Video, Gift
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -95,6 +95,9 @@ export const AdminDashboard: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
+          <Link to="/admin/referrals" className="btn-secondary text-xs px-4 py-2 font-bold flex items-center gap-1.5 text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200">
+            <Gift className="w-4 h-4 text-amber-600" /> Referral & Rewards
+          </Link>
           <Link to="/admin/meetings" className="btn-primary text-xs px-4 py-2 font-bold bg-gradient-to-r from-emerald-600 to-teal-600 flex items-center gap-1.5 shadow-md shadow-emerald-600/20">
             <Video className="w-4 h-4" /> 1-on-1 Meeting Schedules
           </Link>

@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, ShoppingBag, DollarSign, Users, BookOpen, LogOut, Zap, MessageCircle, Video
+  LayoutDashboard, ShoppingBag, DollarSign, Users, BookOpen, LogOut, Zap, MessageCircle, Video, Gift
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import NotificationBell from './NotificationBell';
@@ -14,6 +14,7 @@ const navItems = [
   { to: '/admin/chat', icon: MessageCircle, label: 'Live Chats' },
   { to: '/admin/pricing', icon: DollarSign, label: 'Pricing & Coupons' },
   { to: '/admin/students', icon: Users, label: 'Students' },
+  { to: '/admin/referrals', icon: Gift, label: 'Referrals & Rewards' },
   { to: '/courses', icon: BookOpen, label: 'Courses' },
 ];
 

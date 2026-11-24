@@ -182,6 +182,45 @@ def _serialize_attachment(a, order_id: int, advance_confirmed: bool, is_midterm_
     }
 
 
+def append_order_status_history(order: Order, new_status: str, note: Optional[str] = None, actor: str = "mentor"):
+    history = []
+    if getattr(order, "status_history_json", None):
+        try:
+            history = json.loads(order.status_history_json)
+        except Exception:
+            history = []
+    status_titles = {
+        "pending_payment": "Order Placed",
+        "payment_submitted": "Advance Verification Pending",
+        "advance_paid": "Accepted by Freelancer",
+        "in_progress": "In Progress & Sprints",
+        "ready_for_review": "Delivered for Student Review",
+        "revision_requested": "Revision Requested",
+        "balance_submitted": "Balance Verification Pending",
+        "completed": "Order Completed & Certificate Issued",
+        "cancelled": "Order Cancelled"
+    }
+    default_notes = {
+        "pending_payment": "Order placed. Awaiting 30% advance escrow payment.",
+        "payment_submitted": "Advance payment UTR submitted for bank clearance.",
+        "advance_paid": "Advance payment verified. Mentor assigned and order accepted.",
+        "in_progress": "Technical mentor actively developing code, architecture, and documentation.",
+        "ready_for_review": "Code, report, and deliverables compiled and uploaded for review.",
+        "revision_requested": "Student requested changes on deliverable files.",
+        "balance_submitted": "Remaining 70% payment submitted for bank verification.",
+        "completed": "All milestones verified, balance settled, and verifiable certificate issued.",
+        "cancelled": "Order has been cancelled."
+    }
+    history.append({
+        "status": new_status,
+        "title": status_titles.get(new_status, new_status.replace('_', ' ').title()),
+        "note": note or default_notes.get(new_status, f"Status updated to {new_status}"),
+        "timestamp": datetime.utcnow().isoformat(),
+        "actor": actor
+    })
+    order.status_history_json = json.dumps(history)
+
+
 def order_to_dict(order: Order) -> dict:
     pending_sub = None
     try:
@@ -203,6 +242,23 @@ def order_to_dict(order: Order) -> dict:
     )
     is_fully_settled = bool(order.status == "completed" or balance_amount <= 0.01)
     is_midterm_unlocked = bool(advance_confirmed and (paid_ratio >= 0.49 or is_fully_settled))
+
+    status_hist = []
+    if getattr(order, "status_history_json", None):
+        try:
+            status_hist = json.loads(order.status_history_json)
+        except Exception:
+            status_hist = []
+    if not status_hist:
+        status_hist = [
+            {
+                "status": "pending_payment",
+                "title": "Order Placed",
+                "note": "Project parameters submitted and locked in escrow.",
+                "timestamp": order.created_at.isoformat() if order.created_at else datetime.utcnow().isoformat(),
+                "actor": "student"
+            }
+        ]
 
     return {
         "id": order.id,
@@ -231,6 +287,14 @@ def order_to_dict(order: Order) -> dict:
         "utr_number": order.utr_number,
         "admin_notes": order.admin_notes,
         "student_notes": order.student_notes,
+        "freelancer": {
+            "name": getattr(order, "freelancer_name", None) or "Dr. Rohit Sharma",
+            "avatar": getattr(order, "freelancer_avatar", None) or "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",
+            "role": getattr(order, "freelancer_role", None) or "Senior Academic Mentor & Tech Lead",
+            "rating": 4.9,
+            "verified": True
+        },
+        "status_history": status_hist,
         "revision_count": order.revision_count or 0,
         "max_revisions": order.max_revisions or 2,
         "revision_notes": order.revision_notes,
@@ -451,7 +515,19 @@ def create_order(
         balance_amount=pricing["balance"],
         payment_method=req.payment_method,
         student_notes=req.student_notes,
-        status="pending_payment"
+        status="pending_payment",
+        freelancer_name="Dr. Rohit Sharma" if req.category_key != "school_assignment" else "Pooja Hegde",
+        freelancer_avatar="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80" if req.category_key != "school_assignment" else "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=200&q=80",
+        freelancer_role="Senior Academic Mentor & Tech Lead" if req.category_key != "school_assignment" else "CBSE Math Educator",
+        status_history_json=json.dumps([
+            {
+                "status": "pending_payment",
+                "title": "Order Placed",
+                "note": "Project parameters submitted and locked in escrow.",
+                "timestamp": datetime.utcnow().isoformat(),
+                "actor": "student"
+            }
+        ])
     )
     try:
         db.add(order)
@@ -559,6 +635,10 @@ def update_order_status(
         if not order.certificate_id:
             order.certificate_id = f"CG-CERT-2026-{uuid.uuid4().hex[:8].upper()}"
             order.certificate_issued_at = datetime.utcnow()
+
+        from app.services.referral_service import process_qualifying_referral
+        process_qualifying_referral(db, order)
+
     elif req.status == "ready_for_review":
         create_notification(
             db=db,
@@ -569,6 +649,9 @@ def update_order_status(
             channel="whatsapp",
             action_url=f"/order/{order.id}"
         )
+
+    # Append to visual order progress timeline log
+    append_order_status_history(order, req.status, req.admin_notes, actor="admin")
 
     db.commit()
     db.refresh(order)

@@ -8,6 +8,8 @@ from app.models.notification import Notification
 from app.models.coupon import Coupon
 from app.models.payment_submission import PaymentSubmission
 from app.models.walkthrough_session import WalkthroughSession
+from app.models.gig import Gig
+from app.models.referral import ReferralRecord, WalletTransaction, ReferralProgramConfig
 
 __all__ = [
     "User",
@@ -22,4 +24,8 @@ __all__ = [
     "Course",
     "CourseEnrollment",
     "Notification",
+    "Gig",
+    "ReferralRecord",
+    "WalletTransaction",
+    "ReferralProgramConfig",
 ]
