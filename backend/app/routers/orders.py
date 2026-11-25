@@ -17,7 +17,7 @@ from app.models.order import Order, OrderGroupMember
 from app.models.user import User
 from app.models.attachment import OrderAttachment
 from app.models.payment_submission import PaymentSubmission
-from app.services.auth_service import get_current_user, require_admin, require_student, get_current_user_optional
+from app.services.auth_service import get_current_user, require_admin, require_student, get_current_user_optional, decode_token
 from app.services.pricing_service import calculate_order_price
 from app.services.ai_service import (
     refine_project_scope,
@@ -989,6 +989,21 @@ def preview_attachment(
                     preview_content = "".join(all_lines)
         except Exception as e:
             preview_content = f"# Error reading file preview: {str(e)}"
+    elif is_code and att.file_url and att.file_url.startswith(("http://", "https://")):
+        from app.services.storage_service import fetch_cloud_file
+        cloud_resp = fetch_cloud_file(att.file_url)
+        if cloud_resp is not None:
+            text_data = cloud_resp.content.decode("utf-8", errors="ignore")
+            all_lines = text_data.splitlines(keepends=True)
+            total_lines = len(all_lines)
+            if not is_paid and total_lines > 80:
+                lines_shown = 80
+                preview_content = "".join(all_lines[:80])
+            else:
+                lines_shown = total_lines
+                preview_content = "".join(all_lines)
+        else:
+            preview_content = f"# Cloud preview temporarily unavailable for {filename}."
     elif is_code:
         preview_content = (
             f"# CampusGig Source Code Preview: {filename}\n"
@@ -1097,6 +1112,30 @@ def download_order_attachment(
                     status_code=402,
                     detail=f"Full source code and final deliverables unlock upon 100% balance settlement (₹{round(balance, 2)} remaining)."
                 )
+
+    # Stream directly from Cloud Storage if file_url is a remote URL (e.g. Supabase Storage)
+    if att.file_url and att.file_url.startswith(("http://", "https://")):
+        from fastapi.responses import StreamingResponse
+        from app.services.storage_service import fetch_cloud_file
+        cloud_resp = fetch_cloud_file(att.file_url, stream=True)
+        if cloud_resp is None:
+            raise HTTPException(status_code=404, detail="Deliverable file not found in cloud storage")
+
+        def iter_chunks():
+            try:
+                for chunk in cloud_resp.iter_content(chunk_size=65536):
+                    if chunk:
+                        yield chunk
+            finally:
+                cloud_resp.close()
+
+        return StreamingResponse(
+            iter_chunks(),
+            media_type="application/octet-stream",
+            headers={
+                "Content-Disposition": f'attachment; filename="{att.file_name}"'
+            }
+        )
 
     from app.config import UPLOAD_DIR_DELIVERABLES, UPLOAD_DIR_REFERENCES
     file_path = None

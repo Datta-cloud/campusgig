@@ -12,7 +12,8 @@ from app.models.chat import ChatMessage
 from app.models.user import User
 from app.models.order import Order
 from app.services.auth_service import get_current_user, decode_token
-from app.config import UPLOAD_DIR_REFERENCES, MAX_FILE_SIZE_MB
+from app.services.storage_service import upload_file_bytes
+from app.config import MAX_FILE_SIZE_MB
 
 router = APIRouter(tags=["Chat"])
 
@@ -181,11 +182,13 @@ async def upload_chat_attachment(
         )
 
     safe_filename = f"chat_{resolved_order_id}_{int(datetime.utcnow().timestamp())}_{file.filename}"
-    file_path = os.path.join(UPLOAD_DIR_REFERENCES, safe_filename)
-    with open(file_path, "wb") as f:
-        shutil.copyfileobj(file.file, f)
-
-    file_url = f"/uploads/references/{safe_filename}"
+    file_bytes = await file.read()
+    file_url, _ = upload_file_bytes(
+        file_bytes=file_bytes,
+        filename=safe_filename,
+        folder="references",
+        content_type=file.content_type or "application/octet-stream"
+    )
 
     content_type = (file.content_type or "").lower()
     filename_lower = file.filename.lower()

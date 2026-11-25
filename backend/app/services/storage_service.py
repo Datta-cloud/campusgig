@@ -1,4 +1,6 @@
 import os
+import re
+from urllib.parse import quote
 import requests
 from typing import Optional, Tuple
 from app.config import (
@@ -21,6 +23,12 @@ SUPABASE_STORAGE_BUCKET = os.getenv("SUPABASE_STORAGE_BUCKET", "campusgig-delive
 
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "")
 S3_REGION = os.getenv("AWS_DEFAULT_REGION", "ap-south-1")
+
+
+def _sanitize_object_name(filename: str) -> str:
+    """Normalize filename for safe URL/object-key storage in cloud buckets."""
+    cleaned = re.sub(r"[^A-Za-z0-9._-]", "_", os.path.basename(filename or "file"))
+    return cleaned or "deliverable_file"
 
 
 def is_cloud_storage_enabled() -> bool:
@@ -47,23 +55,24 @@ def upload_file_bytes(
     Upload a file to Cloud Storage (Supabase/S3) with automatic fallback to local disk.
     Returns: (file_url, storage_provider)
     """
+    safe_name = _sanitize_object_name(filename)
+
     # 1. Try Supabase Storage if configured
     if SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY:
         try:
             clean_url = SUPABASE_URL.rstrip("/")
-            target_path = f"{folder}/{filename}"
+            target_path = f"{folder}/{quote(safe_name)}"
             upload_endpoint = f"{clean_url}/storage/v1/object/{SUPABASE_STORAGE_BUCKET}/{target_path}"
-            
+
             headers = {
                 "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
                 "apikey": SUPABASE_SERVICE_ROLE_KEY,
-                "Content-Type": content_type,
+                "Content-Type": content_type or "application/octet-stream",
                 "x-upsert": "true"
             }
-            
-            resp = requests.post(upload_endpoint, data=file_bytes, headers=headers, timeout=15)
+
+            resp = requests.post(upload_endpoint, data=file_bytes, headers=headers, timeout=(15, 300))
             if resp.status_code in [200, 201]:
-                # Public download URL
                 public_url = f"{clean_url}/storage/v1/object/public/{SUPABASE_STORAGE_BUCKET}/{target_path}"
                 return public_url, "Supabase Cloud Storage"
             else:
@@ -76,7 +85,7 @@ def upload_file_bytes(
         try:
             import boto3
             s3 = boto3.client("s3", region_name=S3_REGION)
-            target_key = f"{folder}/{filename}"
+            target_key = f"{folder}/{safe_name}"
             s3.put_object(
                 Bucket=S3_BUCKET_NAME,
                 Key=target_key,
@@ -95,10 +104,45 @@ def upload_file_bytes(
         else UPLOAD_DIR_THUMBNAILS
     )
     os.makedirs(folder_dir, exist_ok=True)
-    local_path = os.path.join(folder_dir, filename)
+    local_path = os.path.join(folder_dir, safe_name)
 
     with open(local_path, "wb") as f:
         f.write(file_bytes)
 
-    local_url = f"/uploads/{folder}/{filename}"
+    local_url = f"/uploads/{folder}/{safe_name}"
     return local_url, "Local Persistent Filesystem"
+
+
+def fetch_cloud_file(file_url: str, stream: bool = False) -> Optional[requests.Response]:
+    """
+    Fetch a remote cloud-stored file (e.g. Supabase Storage URL), using service role auth
+    when targeting the configured Supabase instance so both public and private buckets work.
+    """
+    if not file_url or not file_url.startswith(("http://", "https://")):
+        return None
+
+    headers = {}
+    target_url = file_url
+    clean_supa = SUPABASE_URL.rstrip("/") if SUPABASE_URL else ""
+    if clean_supa and SUPABASE_SERVICE_ROLE_KEY and file_url.startswith(clean_supa):
+        headers = {
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+        }
+        # Prefer authenticated endpoint so private buckets also resolve cleanly
+        public_prefix = f"{clean_supa}/storage/v1/object/public/"
+        if file_url.startswith(public_prefix):
+            target_url = file_url.replace(public_prefix, f"{clean_supa}/storage/v1/object/authenticated/", 1)
+
+    try:
+        resp = requests.get(target_url, headers=headers, stream=stream, timeout=(15, 300))
+        if resp.status_code == 200:
+            return resp
+        # Fallback to original URL if authenticated rewrite did not match
+        if target_url != file_url:
+            resp = requests.get(file_url, stream=stream, timeout=(15, 300))
+            if resp.status_code == 200:
+                return resp
+    except Exception as e:
+        print(f"[Storage Error] Failed to fetch cloud file {file_url}: {e}")
+    return None

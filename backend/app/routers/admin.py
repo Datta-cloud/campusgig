@@ -20,6 +20,7 @@ from app.models.course import CourseEnrollment
 from app.models.notification import Notification
 from app.models.walkthrough_session import WalkthroughSession
 from app.services.auth_service import require_admin, hash_password
+from app.services.storage_service import upload_file_bytes
 from app.config import UPLOAD_DIR_DELIVERABLES, MAX_FILE_SIZE_MB
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
@@ -409,6 +410,7 @@ async def upload_deliverable(
 
     attachment_id = None
     file_url = None
+    storage_provider = None
     display_type = phase_name if phase_name else file_type
 
     # 4. Handle file upload if file is provided
@@ -425,11 +427,13 @@ async def upload_deliverable(
             )
 
         safe_filename = f"{order.order_number}_{int(datetime.utcnow().timestamp())}_{file.filename}"
-        file_path = os.path.join(UPLOAD_DIR_DELIVERABLES, safe_filename)
-        with open(file_path, "wb") as f:
-            shutil.copyfileobj(file.file, f)
-
-        file_url = f"/uploads/deliverables/{safe_filename}"
+        file_bytes = await file.read()
+        file_url, storage_provider = upload_file_bytes(
+            file_bytes=file_bytes,
+            filename=safe_filename,
+            folder="deliverables",
+            content_type=file.content_type or "application/octet-stream"
+        )
 
         attachment = OrderAttachment(
             order_id=order_id,
@@ -464,6 +468,7 @@ async def upload_deliverable(
     return {
         "message": "Order updated successfully",
         "file_url": file_url,
+        "storage_provider": storage_provider,
         "attachment_id": attachment_id,
         "file_type": display_type,
         "order_status": order.status,
