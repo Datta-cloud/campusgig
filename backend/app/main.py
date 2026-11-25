@@ -869,12 +869,12 @@ def get_public_platform_stats():
         total_orders = db.query(Order).count()
         completed_orders = db.query(Order).filter(Order.status == "completed").count()
         active_streams = db.query(PricingConfig).filter(PricingConfig.is_active == True).count()
-        registered_users = db.query(User).count()
+        registered_students = db.query(User).filter(User.role == "student").count()
 
         return {
-            "total_projects": max(total_orders, 12),
-            "completed_deliveries": max(completed_orders, 8),
-            "registered_students": max(registered_users, 15),
+            "total_projects": total_orders,
+            "completed_deliveries": completed_orders,
+            "registered_students": registered_students,
             "active_academic_streams": active_streams or 9,
             "turnaround_hours": "24–48h",
             "plagiarism_guarantee": "< 10% Turnitin Verified",

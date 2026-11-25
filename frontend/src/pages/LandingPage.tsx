@@ -65,10 +65,10 @@ export const LandingPage: React.FC = () => {
   const [gigs, setGigs] = useState<GigItem[]>([]);
   const [gigsLoading, setGigsLoading] = useState(true);
   const [stats, setStats] = useState({
-    total_projects: 12,
-    completed_deliveries: 8,
-    registered_students: 15,
-    active_academic_streams: 11,
+    total_projects: 0,
+    completed_deliveries: 0,
+    registered_students: 0,
+    active_academic_streams: 9,
     turnaround_hours: '24–48h',
     plagiarism_guarantee: '< 10% Turnitin Verified',
     average_mentor_rating: 4.9,
@@ -86,6 +86,16 @@ export const LandingPage: React.FC = () => {
     student_type: 'college' as 'school' | 'college',
     college_name: '', college_branch: '', school_class: '', phone: '',
   });
+
+  // Open Admin Sign-In modal cleanly when redirected with ?login=admin
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('login') === 'admin' && user?.role !== 'admin') {
+      setShowModal(true);
+      setTab('admin');
+      setMode('login');
+    }
+  }, [user]);
 
   // Pre-warm backend and fetch genuine platform stats + featured gigs
   useEffect(() => {
@@ -170,7 +180,7 @@ export const LandingPage: React.FC = () => {
 
   useEffect(() => {
     const savedUser = tab === 'admin'
-      ? localStorage.getItem('cg_remembered_admin_user') || ''
+      ? ''
       : localStorage.getItem('cg_remembered_user') || '';
 
     setForm({
@@ -201,12 +211,10 @@ export const LandingPage: React.FC = () => {
     setLoading(true);
     setError('');
     try {
-      if (rememberMe) {
-        if (tab === 'admin') {
-          localStorage.setItem('cg_remembered_admin_user', form.email);
-        } else {
-          localStorage.setItem('cg_remembered_user', form.email);
-        }
+      if (rememberMe && tab !== 'admin') {
+        localStorage.setItem('cg_remembered_user', form.email);
+      } else if (tab === 'admin') {
+        localStorage.removeItem('cg_remembered_admin_user');
       }
 
       if (tab === 'admin') {
@@ -1239,17 +1247,19 @@ export const LandingPage: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="pt-1">
-                      <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={rememberMe}
-                          onChange={e => setRememberMe(e.target.checked)}
-                          className="w-4 h-4 rounded text-brand-600 accent-brand-600 cursor-pointer"
-                        />
-                        <span>Remember credentials for easy sign-in</span>
-                      </label>
-                    </div>
+                    {tab !== 'admin' && (
+                      <div className="pt-1">
+                        <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={rememberMe}
+                            onChange={e => setRememberMe(e.target.checked)}
+                            className="w-4 h-4 rounded text-brand-600 accent-brand-600 cursor-pointer"
+                          />
+                          <span>Remember credentials for easy sign-in</span>
+                        </label>
+                      </div>
+                    )}
 
                     <button
                       type="submit"

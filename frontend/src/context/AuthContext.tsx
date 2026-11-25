@@ -31,13 +31,56 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const storedToken = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-    if (storedToken && storedUser) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
-    }
-    setLoading(false);
+    const initAuth = async () => {
+      // Security: Never auto-restore stale admin sessions from localStorage across browser restarts
+      localStorage.removeItem('cg_remembered_admin_user');
+      const localUserRaw = localStorage.getItem('user');
+      if (localUserRaw) {
+        try {
+          const parsedLocal = JSON.parse(localUserRaw);
+          if (parsedLocal?.role === 'admin') {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+          }
+        } catch {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+        }
+      }
+
+      const sessionToken = sessionStorage.getItem('token');
+      const sessionUser = sessionStorage.getItem('user');
+      const localToken = localStorage.getItem('token');
+      const localUser = localStorage.getItem('user');
+
+      const storedToken = sessionToken || localToken;
+      const storedUser = sessionUser || localUser;
+
+      if (storedToken && storedUser) {
+        try {
+          const parsed = JSON.parse(storedUser);
+          setToken(storedToken);
+          setUser(parsed);
+          // Validate active session against backend so deleted users cannot stay logged in
+          const meRes = await api.get('/auth/me');
+          if (meRes.data) {
+            setUser(meRes.data);
+            const targetStorage = meRes.data.role === 'admin' ? sessionStorage : localStorage;
+            targetStorage.setItem('user', JSON.stringify(meRes.data));
+          }
+        } catch {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          sessionStorage.removeItem('token');
+          sessionStorage.removeItem('user');
+          setToken(null);
+          setUser(null);
+        }
+      }
+      setLoading(false);
+    };
+
+    initAuth();
   }, []);
 
   const login = async (email: string, password: string, role?: 'student' | 'admin') => {
@@ -51,8 +94,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const response = await api.post('/auth/login', payload);
 
     const { access_token, user: userData } = response.data;
-    localStorage.setItem('token', access_token);
-    localStorage.setItem('user', JSON.stringify(userData));
+    // Clear both storages first to avoid cross-role residue
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('user');
+
+    // Admin sessions stay in sessionStorage only so reopening browser requires fresh login
+    const storage = userData?.role === 'admin' ? sessionStorage : localStorage;
+    storage.setItem('token', access_token);
+    storage.setItem('user', JSON.stringify(userData));
     setToken(access_token);
     setUser(userData);
   };
@@ -61,6 +112,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     api.post('/auth/logout').catch(() => {});
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem('cg_remembered_admin_user');
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('user');
     setToken(null);
     setUser(null);
   };

@@ -922,13 +922,18 @@ def reset_all_student_data(
 
     try:
         # 1. Purge all dependent transactional records across all tables & coupons
+        from app.models.referral import ReferralRecord, WalletTransaction
+        from app.models.academic_chat import AcademicChatMessage
         db.query(PaymentSubmission).delete(synchronize_session=False)
         db.query(WalkthroughSession).delete(synchronize_session=False)
         db.query(ChatMessage).delete(synchronize_session=False)
+        db.query(AcademicChatMessage).delete(synchronize_session=False)
         db.query(OrderAttachment).delete(synchronize_session=False)
         db.query(OrderGroupMember).delete(synchronize_session=False)
         db.query(Notification).delete(synchronize_session=False)
         db.query(CourseEnrollment).delete(synchronize_session=False)
+        db.query(ReferralRecord).delete(synchronize_session=False)
+        db.query(WalletTransaction).delete(synchronize_session=False)
         db.query(Order).delete(synchronize_session=False)
         db.query(Coupon).delete(synchronize_session=False)
 

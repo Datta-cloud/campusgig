@@ -7,10 +7,10 @@ const api = axios.create({
   baseURL: BASE_URL,
 });
 
-// Inject Bearer token from localStorage & handle multipart FormData
+// Inject Bearer token from sessionStorage (admin) or localStorage (student) & handle multipart FormData
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token') || localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -28,7 +28,7 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Handle 401 -> redirect to login (only if not an auth endpoint)
+// Handle 401 -> clear auth state & redirect to landing (only if not an auth endpoint)
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -36,6 +36,8 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !isAuthEndpoint) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('user');
       window.location.href = '/';
     }
     return Promise.reject(error);
