@@ -470,9 +470,9 @@ async def lifespan(app: FastAPI):
             ("orders", "plagiarism_report_url", "VARCHAR"),
             ("order_group_members", "qr_token", "VARCHAR"),
             ("users", "wallet_balance", "FLOAT DEFAULT 0.0"),
-            ("orders", "freelancer_name", "VARCHAR DEFAULT 'Dr. Rohit Sharma'"),
+            ("orders", "freelancer_name", "VARCHAR DEFAULT 'Datta Hadke'"),
             ("orders", "freelancer_avatar", "VARCHAR"),
-            ("orders", "freelancer_role", "VARCHAR DEFAULT 'Senior Academic Mentor'"),
+            ("orders", "freelancer_role", "VARCHAR DEFAULT 'Founder & Lead Academic Mentor'"),
             ("orders", "status_history_json", "TEXT"),
         ]
         for table, col, col_def in columns_to_add:
@@ -561,6 +561,19 @@ async def lifespan(app: FastAPI):
                     """))
             except Exception as e:
                 print(f"⚠️ walkthrough_sessions table note: {e}")
+
+        # Ensure sole mentor attribution on existing orders
+        try:
+            with engine.begin() as conn:
+                conn.execute(text("""
+                    UPDATE orders
+                    SET freelancer_name = 'Datta Hadke',
+                        freelancer_role = 'Founder & Lead Academic Mentor'
+                    WHERE freelancer_name IS NULL
+                       OR freelancer_name IN ('Dr. Rohit Sharma', 'Pooja Hegde', 'Ananya Sen', 'Kunal Verma', 'Vikram Adve', 'Siddharth Rao', 'Neha Kulkarni')
+                """))
+        except Exception as mentor_mig_err:
+            print(f"⚠️ Order mentor migration note: {mentor_mig_err}")
 
         # Reset default artificial wallet balances to 0.0 for users without referrals
         try:

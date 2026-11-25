@@ -313,10 +313,10 @@ export const OrderDetail: React.FC = () => {
                       </span>
                     </div>
                     <h4 className="font-bold text-slate-900 dark:text-white text-base mt-1 truncate">
-                      {order.freelancer?.name || 'Dr. Rohit Sharma'}
+                      {order.freelancer?.name || 'Datta Hadke'}
                     </h4>
                     <p className="text-xs text-slate-500 dark:text-zinc-400 truncate">
-                      {order.freelancer?.role || 'Senior Academic Mentor & Tech Lead'}
+                      {order.freelancer?.role || 'Founder & Lead Academic Mentor'}
                     </p>
                   </div>
                 </div>
