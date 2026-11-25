@@ -27,7 +27,7 @@ export const AdminOrders: React.FC = () => {
   const [uploadOrder, setUploadOrder] = useState<Order | null>(null);
   const [uploadTotalPrice, setUploadTotalPrice] = useState<string>('');
   const [additionalPaid, setAdditionalPaid] = useState<string>('');
-  const [deliverableFile, setDeliverableFile] = useState<File | null>(null);
+  const [deliverableFiles, setDeliverableFiles] = useState<File[]>([]);
   const [fileType, setFileType] = useState('deliverable');
   const [phaseName, setPhaseName] = useState('Phase 1: Project Scope, Synopsis & Architecture');
   const [uploading, setUploading] = useState(false);
@@ -88,14 +88,14 @@ export const AdminOrders: React.FC = () => {
   const handleUploadDeliverable = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!uploadOrder) return;
-    if (!deliverableFile && (!additionalPaid || Number(additionalPaid) <= 0) && (!uploadTotalPrice || Number(uploadTotalPrice) === uploadOrder.total_price)) {
-      alert("Please select a file to upload or enter a payment adjustment.");
+    if (deliverableFiles.length === 0 && (!additionalPaid || Number(additionalPaid) <= 0) && (!uploadTotalPrice || Number(uploadTotalPrice) === uploadOrder.total_price)) {
+      alert("Please select at least one file to upload or enter a payment adjustment.");
       return;
     }
 
     const formData = new FormData();
-    if (deliverableFile) {
-      formData.append('file', deliverableFile);
+    if (deliverableFiles.length > 0) {
+      deliverableFiles.forEach(f => formData.append('files', f));
       formData.append('file_type', fileType);
       formData.append('phase_name', phaseName);
     }
@@ -109,9 +109,9 @@ export const AdminOrders: React.FC = () => {
     setUploading(true);
     try {
       await api.post(`/admin/orders/${uploadOrder.id}/upload-deliverable`, formData);
-      alert(`Order ${uploadOrder.order_number} updated successfully! Deliverable & balance synchronized.`);
+      alert(`Order ${uploadOrder.order_number} updated successfully! Deliverable(s) & balance synchronized.`);
       setUploadOrder(null);
-      setDeliverableFile(null);
+      setDeliverableFiles([]);
       setAdditionalPaid('');
       fetchOrders();
     } catch (err: any) {
@@ -291,7 +291,7 @@ export const AdminOrders: React.FC = () => {
             setUploadOrder(o);
             setUploadTotalPrice(String(o.total_price));
             setAdditionalPaid('');
-            setDeliverableFile(null);
+            setDeliverableFiles([]);
           }}
           className="btn-secondary text-[11px] px-2.5 py-1 font-bold inline-flex items-center gap-1"
           title="Upload Source Code / Deliverables"
@@ -618,8 +618,8 @@ export const AdminOrders: React.FC = () => {
 
       {/* Phase-Wise Deliverable Upload Modal */}
       {uploadOrder && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <form onSubmit={handleUploadDeliverable} className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <form onSubmit={handleUploadDeliverable} className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl max-h-[90vh] overflow-y-auto my-auto">
             <div className="flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
@@ -655,16 +655,40 @@ export const AdminOrders: React.FC = () => {
 
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                Select File to Upload (.zip, .pdf, .pptx, .mp4, datasets - up to 500MB)
+                Select File(s) to Upload (.zip, .pdf, .pptx, .mp4, datasets - up to 500MB each)
                 <span className="text-[11px] font-normal text-slate-400 ml-1">(Optional if only updating payment)</span>
               </label>
               <input
                 type="file"
-                onChange={e => setDeliverableFile(e.target.files?.[0] || null)}
+                multiple
+                onChange={e => {
+                  const selected = Array.from(e.target.files || []);
+                  if (selected.length > 0) {
+                    setDeliverableFiles(prev => [...prev, ...selected]);
+                  }
+                  e.target.value = '';
+                }}
                 className="w-full text-xs text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 cursor-pointer border border-slate-200 rounded-xl"
               />
+              {deliverableFiles.length > 0 && (
+                <div className="mt-2 space-y-1 max-h-24 overflow-y-auto">
+                  {deliverableFiles.map((f, idx) => (
+                    <div key={`${f.name}-${idx}`} className="flex items-center justify-between text-[11px] bg-purple-50/70 border border-purple-200 rounded-lg px-2.5 py-1">
+                      <span className="font-medium text-purple-900 truncate max-w-xs">{f.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => setDeliverableFiles(prev => prev.filter((_, i) => i !== idx))}
+                        className="text-purple-500 hover:text-red-600 font-bold ml-2"
+                        title="Remove file"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
               <p className="text-[11px] text-slate-400 mt-1">
-                Files up to 500MB are supported (.zip, .pdf, .pptx, .mp4, datasets). Stored securely and immediately downloadable for the student.
+                You can select multiple files at once or add more files before submitting. Stored securely and immediately downloadable for the student.
               </p>
             </div>
 
@@ -825,7 +849,7 @@ export const AdminOrders: React.FC = () => {
               </button>
               <button
                 type="submit"
-                disabled={uploading || (!deliverableFile && (!additionalPaid || Number(additionalPaid) <= 0) && (!uploadTotalPrice || Number(uploadTotalPrice) === uploadOrder.total_price))}
+                disabled={uploading || (deliverableFiles.length === 0 && (!additionalPaid || Number(additionalPaid) <= 0) && (!uploadTotalPrice || Number(uploadTotalPrice) === uploadOrder.total_price))}
                 className="btn-primary text-xs px-5 py-2 font-bold flex items-center gap-1.5 shadow-sm"
               >
                 {uploading ? (
@@ -836,7 +860,7 @@ export const AdminOrders: React.FC = () => {
                 ) : (
                   <>
                     <Coins className="w-3.5 h-3.5" />
-                    <span>{deliverableFile ? 'Upload Deliverable & Update Balance' : 'Save Payment & Update Balance'}</span>
+                    <span>{deliverableFiles.length > 0 ? `Upload ${deliverableFiles.length} File${deliverableFiles.length > 1 ? 's' : ''} & Update Balance` : 'Save Payment & Update Balance'}</span>
                   </>
                 )}
               </button>

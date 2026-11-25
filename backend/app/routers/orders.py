@@ -217,7 +217,7 @@ def append_order_status_history(order: Order, new_status: str, note: Optional[st
         "status": new_status,
         "title": status_titles.get(new_status, new_status.replace('_', ' ').title()),
         "note": note or default_notes.get(new_status, f"Status updated to {new_status}"),
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.utcnow().isoformat() + "Z",
         "actor": actor
     })
     order.status_history_json = json.dumps(history)
@@ -595,7 +595,7 @@ def create_order(
                 "status": "pending_payment",
                 "title": "Order Placed",
                 "note": "Project parameters submitted and locked in escrow.",
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.utcnow().isoformat() + "Z",
                 "actor": "student"
             }
         ])

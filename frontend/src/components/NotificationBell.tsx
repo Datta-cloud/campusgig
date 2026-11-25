@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Bell, CheckCheck, ExternalLink, MessageSquare, Mail, AlertCircle, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { formatISTTime } from '../utils/date';
 
 interface NotificationItem {
   id: number;
@@ -151,7 +152,7 @@ export const NotificationBell: React.FC = () => {
                     {n.message}
                   </p>
                   <div className="flex items-center justify-between text-[10px] text-slate-400 mt-2">
-                    <span>{new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    <span>{formatISTTime(n.created_at)}</span>
                     {n.action_url && (
                       <span className="text-brand-600 font-semibold flex items-center gap-0.5">
                         View <ExternalLink className="w-2.5 h-2.5" />

@@ -27,23 +27,23 @@ export const ReferralDashboardCard: React.FC<ReferralDashboardCardProps> = ({
   // If sampleMode, match the exact numbers from the user's screenshot
   const referralCode = sampleMode
     ? 'CAMPUS2027'
-    : (stats?.referral_code || 'CAMPUS2027');
+    : (stats?.referral_code || '---');
 
   const totalReferrals = sampleMode
     ? 12
-    : (stats?.total_referrals ?? 12);
+    : (stats?.total_referrals ?? 0);
 
   const successfulReferrals = sampleMode
     ? 8
-    : (stats?.successful_referrals ?? 8);
+    : (stats?.successful_referrals ?? 0);
 
   const rewardsEarned = sampleMode
     ? 400
-    : (stats?.rewards_earned ?? 400);
+    : (stats?.rewards_earned ?? 0);
 
   const pendingRewards = sampleMode
     ? 200
-    : (stats?.pending_rewards ?? 200);
+    : (stats?.pending_rewards ?? 0);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(referralCode);

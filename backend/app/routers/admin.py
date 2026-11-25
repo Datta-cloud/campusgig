@@ -383,6 +383,7 @@ def get_analytics(
 async def upload_deliverable(
     order_id: int,
     file: Optional[UploadFile] = File(None),
+    files: List[UploadFile] = File(default=[]),
     file_type: str = Form("deliverable"),
     phase_name: Optional[str] = Form(None),
     additional_paid: Optional[float] = Form(None),
@@ -482,59 +483,77 @@ async def upload_deliverable(
             )
 
     attachment_id = None
+    attachment_ids = []
     file_url = None
     storage_provider = None
     display_type = phase_name if phase_name else file_type
 
-    # 4. Handle file upload if file is provided
+    # Combine single `file` and multi `files` inputs
+    upload_list: List[UploadFile] = []
     if file and file.filename:
-        # Check file size limit (up to MAX_FILE_SIZE_MB)
-        file.file.seek(0, 2)
-        file_size = file.file.tell()
-        file.file.seek(0)
+        upload_list.append(file)
+    for f in files:
+        if f and f.filename:
+            upload_list.append(f)
+
+    # 4. Handle file uploads if any files are provided
+    if upload_list:
         max_bytes = MAX_FILE_SIZE_MB * 1024 * 1024
-        if file_size > max_bytes:
-            raise HTTPException(
-                status_code=400,
-                detail=f"File exceeds maximum allowed size of {MAX_FILE_SIZE_MB}MB (received {round(file_size / (1024 * 1024), 2)}MB)"
+        uploaded_names = []
+        created_attachments = []
+
+        for f in upload_list:
+            f.file.seek(0, 2)
+            file_size = f.file.tell()
+            f.file.seek(0)
+            if file_size > max_bytes:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"File '{f.filename}' exceeds maximum allowed size of {MAX_FILE_SIZE_MB}MB (received {round(file_size / (1024 * 1024), 2)}MB)"
+                )
+
+            safe_filename = f"{order.order_number}_{int(datetime.utcnow().timestamp())}_{f.filename}"
+            file_bytes = await f.read()
+            file_url, storage_provider = upload_file_bytes(
+                file_bytes=file_bytes,
+                filename=safe_filename,
+                folder="deliverables",
+                content_type=f.content_type or "application/octet-stream"
             )
 
-        safe_filename = f"{order.order_number}_{int(datetime.utcnow().timestamp())}_{file.filename}"
-        file_bytes = await file.read()
-        file_url, storage_provider = upload_file_bytes(
-            file_bytes=file_bytes,
-            filename=safe_filename,
-            folder="deliverables",
-            content_type=file.content_type or "application/octet-stream"
-        )
-
-        attachment = OrderAttachment(
-            order_id=order_id,
-            file_name=file.filename,
-            file_url=file_url,
-            file_type=display_type,
-            uploaded_by="admin"
-        )
-        db.add(attachment)
+            attachment = OrderAttachment(
+                order_id=order_id,
+                file_name=f.filename,
+                file_url=file_url,
+                file_type=display_type,
+                uploaded_by="admin"
+            )
+            db.add(attachment)
+            created_attachments.append(attachment)
+            uploaded_names.append(f.filename)
 
         # Auto-transition to ready_for_review if advance_paid, in_progress or revision_requested
         if order.status in ("in_progress", "advance_paid", "revision_requested"):
             order.status = "ready_for_review"
 
             from app.services.notification_service import create_notification
+            files_summary = uploaded_names[0] if len(uploaded_names) == 1 else f"{len(uploaded_names)} files ({', '.join(uploaded_names[:3])}{'...' if len(uploaded_names) > 3 else ''})"
             create_notification(
                 db=db,
                 user_id=order.student_id,
                 title="Deliverable Ready for Review! 📦",
-                message=f"Mentor uploaded '{file.filename}' for {order.order_number}. Remaining fee is ₹{order.balance_amount}. Inspect previews and pay balance to unlock.",
+                message=f"Mentor uploaded '{files_summary}' for {order.order_number}. Remaining fee is ₹{order.balance_amount}. Inspect previews and pay balance to unlock.",
                 order_id=order.id,
                 channel="whatsapp",
                 action_url=f"/order/{order.id}"
             )
 
         db.commit()
-        db.refresh(attachment)
-        attachment_id = attachment.id
+        for att in created_attachments:
+            db.refresh(att)
+            attachment_ids.append(att.id)
+        if attachment_ids:
+            attachment_id = attachment_ids[0]
     else:
         db.commit()
 
@@ -543,6 +562,7 @@ async def upload_deliverable(
         "file_url": file_url,
         "storage_provider": storage_provider,
         "attachment_id": attachment_id,
+        "attachment_ids": attachment_ids,
         "receipt_id": receipt_id,
         "file_type": display_type,
         "order_status": order.status,

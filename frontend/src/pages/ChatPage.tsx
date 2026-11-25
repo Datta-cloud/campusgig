@@ -10,6 +10,7 @@ import { useAuth } from '../context/AuthContext';
 import { ChatMessage, Order } from '../types';
 import StatusBadge from '../components/StatusBadge';
 import OnlineIndicator from '../components/OnlineIndicator';
+import { formatISTTime } from '../utils/date';
 import { PaymentModal } from '../components/PaymentModal';
 
 export const ChatPage: React.FC = () => {
@@ -429,7 +430,7 @@ export const ChatPage: React.FC = () => {
                     <span className="font-semibold text-slate-600">
                       {isMe ? 'You' : msg.sender?.full_name || (isAdminMessage ? 'Mentor' : 'Student')}
                     </span>
-                    <span>{new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    <span>{formatISTTime(msg.created_at)}</span>
                   </div>
 
                   <div

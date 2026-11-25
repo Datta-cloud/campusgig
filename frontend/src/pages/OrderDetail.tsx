@@ -12,6 +12,7 @@ import { Order } from '../types';
 import { useAuth } from '../context/AuthContext';
 import StatusBadge from '../components/StatusBadge';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { formatISTDateTime, formatISTDate } from '../utils/date';
 
 // New Feature Modals
 import CodePreviewModal from '../components/CodePreviewModal';
@@ -409,12 +410,7 @@ export const OrderDetail: React.FC = () => {
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-bold text-slate-800 dark:text-white">{hist.title}</span>
                         <span className="text-[10px] text-slate-400">
-                          {new Date(hist.timestamp).toLocaleString('en-IN', {
-                            day: 'numeric',
-                            month: 'short',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
+                          {formatISTDateTime(hist.timestamp)}
                         </span>
                       </div>
                       <p className="text-slate-600 dark:text-zinc-300 mt-0.5">{hist.note}</p>
@@ -514,7 +510,7 @@ export const OrderDetail: React.FC = () => {
                   1-on-1 Code Walkthrough &amp; Viva Mentorship
                 </h4>
                 <p className="text-xs text-indigo-100 mt-0.5">
-                  {(order as any).walkthrough_scheduled_at ? new Date((order as any).walkthrough_scheduled_at).toLocaleString() : 'Scheduled session room ready'}
+                  {(order as any).walkthrough_scheduled_at ? formatISTDateTime((order as any).walkthrough_scheduled_at) : 'Scheduled session room ready'}
                 </p>
               </div>
             </div>
@@ -633,7 +629,7 @@ export const OrderDetail: React.FC = () => {
                     </div>
                     <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5 font-mono">
                       Receipt/UTR: {ps.utr_number}
-                      {ps.verified_at ? ` · Verified ${new Date(ps.verified_at).toLocaleString()}` : ''}
+                      {ps.verified_at ? ` · Verified ${formatISTDateTime(ps.verified_at)}` : ''}
                     </p>
                     {ps.admin_notes && (
                       <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">{ps.admin_notes}</p>
@@ -1363,7 +1359,7 @@ export const OrderDetail: React.FC = () => {
                                     {att.file_name}
                                   </h5>
                                   <span className="text-[10px] text-slate-400 block mt-0.5">
-                                    Uploaded by Mentor • {att.created_at ? new Date(att.created_at).toLocaleDateString() : 'Ready'}
+                                    Uploaded by Mentor • {att.created_at ? formatISTDate(att.created_at) : 'Ready'}
                                   </span>
                                 </div>
                               </div>

@@ -163,10 +163,10 @@ export const ReferralWalletModal: React.FC<ReferralWalletModalProps> = ({
                     <ReferralDashboardCard
                       stats={{
                         referral_code: data.referral_code,
-                        total_referrals: data.total_referred || 12,
-                        successful_referrals: data.successful_referrals || 8,
-                        rewards_earned: int(data.total_rewards_earned || 400),
-                        pending_rewards: int(data.pending_referrals ? data.pending_referrals * (data.reward_per_referral || 50) : 200),
+                        total_referrals: data.total_referred ?? 0,
+                        successful_referrals: data.successful_referrals ?? 0,
+                        rewards_earned: int(data.total_rewards_earned ?? 0),
+                        pending_rewards: int((data.pending_referrals ?? 0) * (data.reward_per_referral ?? 0)),
                         referral_link: data.referral_link,
                       }}
                       onShareWhatsApp={handleShareWhatsApp}
