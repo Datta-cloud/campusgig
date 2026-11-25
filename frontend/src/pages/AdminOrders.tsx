@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Search, Filter, MessageCircle, ExternalLink, Upload, CheckCircle2,
-  Clock, Shield, AlertCircle, X, Download, RefreshCw
+  Clock, Shield, AlertCircle, X, Download, RefreshCw, Coins
 } from 'lucide-react';
 import api, { getErrorMessage } from '../services/api';
 import { Order } from '../types';
@@ -26,6 +26,7 @@ export const AdminOrders: React.FC = () => {
   // Deliverable Upload Modal
   const [uploadOrder, setUploadOrder] = useState<Order | null>(null);
   const [uploadTotalPrice, setUploadTotalPrice] = useState<string>('');
+  const [additionalPaid, setAdditionalPaid] = useState<string>('');
   const [deliverableFile, setDeliverableFile] = useState<File | null>(null);
   const [fileType, setFileType] = useState('deliverable');
   const [phaseName, setPhaseName] = useState('Phase 1: Project Scope, Synopsis & Architecture');
@@ -86,25 +87,35 @@ export const AdminOrders: React.FC = () => {
 
   const handleUploadDeliverable = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!uploadOrder || !deliverableFile) return;
+    if (!uploadOrder) return;
+    if (!deliverableFile && (!additionalPaid || Number(additionalPaid) <= 0) && (!uploadTotalPrice || Number(uploadTotalPrice) === uploadOrder.total_price)) {
+      alert("Please select a file to upload or enter a payment adjustment.");
+      return;
+    }
 
     const formData = new FormData();
-    formData.append('file', deliverableFile);
-    formData.append('file_type', fileType);
-    formData.append('phase_name', phaseName);
+    if (deliverableFile) {
+      formData.append('file', deliverableFile);
+      formData.append('file_type', fileType);
+      formData.append('phase_name', phaseName);
+    }
     if (uploadTotalPrice && Number(uploadTotalPrice) > 0) {
       formData.append('updated_total_price', uploadTotalPrice);
+    }
+    if (additionalPaid && Number(additionalPaid) > 0) {
+      formData.append('additional_paid', additionalPaid);
     }
 
     setUploading(true);
     try {
       await api.post(`/admin/orders/${uploadOrder.id}/upload-deliverable`, formData);
-      alert(`Deliverable uploaded for ${phaseName}! Student can now preview/download it.`);
+      alert(`Order ${uploadOrder.order_number} updated successfully! Deliverable & balance synchronized.`);
       setUploadOrder(null);
       setDeliverableFile(null);
+      setAdditionalPaid('');
       fetchOrders();
     } catch (err: any) {
-      alert(getErrorMessage(err, 'Failed to upload deliverable'));
+      alert(getErrorMessage(err, 'Failed to update order'));
     } finally {
       setUploading(false);
     }
@@ -279,6 +290,7 @@ export const AdminOrders: React.FC = () => {
           onClick={() => {
             setUploadOrder(o);
             setUploadTotalPrice(String(o.total_price));
+            setAdditionalPaid('');
             setDeliverableFile(null);
           }}
           className="btn-secondary text-[11px] px-2.5 py-1 font-bold inline-flex items-center gap-1"
@@ -535,7 +547,7 @@ export const AdminOrders: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 mb-0.5">Advance Amount (₹)</label>
+                  <label className="block text-[10px] font-bold text-slate-500 mb-0.5">Total Paid / Advance (₹)</label>
                   <input
                     type="number"
                     step="1"
@@ -543,6 +555,19 @@ export const AdminOrders: React.FC = () => {
                     onChange={e => setStatusAdvanceAmount(e.target.value)}
                     className="w-full input-field text-xs font-bold"
                   />
+                  <div className="flex gap-1 mt-1">
+                    {[200, 500, 1000].map(amt => (
+                      <button
+                        key={amt}
+                        type="button"
+                        onClick={() => setStatusAdvanceAmount(String((Number(statusAdvanceAmount) || 0) + amt))}
+                        className="text-[9px] font-bold bg-white hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 px-1.5 py-0.5 rounded border border-slate-200"
+                        title={`Add ₹${amt} to paid amount`}
+                      >
+                        +{amt}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
               <div className="flex justify-between items-center text-[11px] text-slate-600 pt-1 border-t border-slate-200">
@@ -612,46 +637,151 @@ export const AdminOrders: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Select File to Upload (.zip, .pdf, .pptx, .mp4, datasets - up to 500MB) *</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Select File to Upload (.zip, .pdf, .pptx, .mp4, datasets - up to 500MB)
+                <span className="text-[11px] font-normal text-slate-400 ml-1">(Optional if only updating payment)</span>
+              </label>
               <input
                 type="file"
                 onChange={e => setDeliverableFile(e.target.files?.[0] || null)}
                 className="w-full text-xs text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 cursor-pointer border border-slate-200 rounded-xl"
-                required
               />
               <p className="text-[11px] text-slate-400 mt-1">
                 Files up to 500MB are supported (.zip, .pdf, .pptx, .mp4, datasets). Stored securely and immediately downloadable for the student.
               </p>
             </div>
 
-            {/* Adjust / Update Total Amount */}
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-              <label className="block text-xs font-bold text-slate-700">
-                Adjust Total Project Price (₹) (Optional)
-              </label>
-              <div className="flex items-center gap-3">
-                <div className="relative flex-1">
-                  <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">₹</span>
-                  <input
-                    type="number"
-                    step="1"
-                    value={uploadTotalPrice}
-                    onChange={e => setUploadTotalPrice(e.target.value)}
-                    placeholder={String(uploadOrder.total_price)}
-                    className="w-full input-field pl-7 text-xs font-bold text-slate-800"
-                  />
+            {/* Dynamic Payment & Balance Adjustment */}
+            {(() => {
+              const currentTotal = Number(uploadTotalPrice) > 0 ? Number(uploadTotalPrice) : (uploadOrder.total_price || 0);
+              const alreadyPaid = uploadOrder.advance_amount || 0;
+              const morePaid = Number(additionalPaid) || 0;
+              const newTotalPaid = Math.min(currentTotal, alreadyPaid + morePaid);
+              const newBalance = Math.max(0, currentTotal - newTotalPaid);
+              const currentRemaining = Math.max(0, currentTotal - alreadyPaid);
+
+              return (
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <Coins className="w-4 h-4 text-emerald-600" />
+                      <span>Adjust Payment &amp; Auto-Update Remaining Balance</span>
+                    </span>
+                    <span className="text-[11px] font-semibold text-slate-500">
+                      Total Project Fee: <strong className="text-slate-900 font-bold">₹{currentTotal}</strong>
+                    </span>
+                  </div>
+
+                  {/* Primary Input: How much MORE he paid */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      How much more did the student pay? (₹)
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-2.5 text-xs font-black text-emerald-600">+ ₹</span>
+                      <input
+                        type="number"
+                        step="1"
+                        min="0"
+                        value={additionalPaid}
+                        onChange={e => setAdditionalPaid(e.target.value)}
+                        placeholder="e.g. 500, 1000 (Enter extra payment received from student)"
+                        className="w-full input-field pl-10 pr-8 text-xs font-bold text-slate-900 bg-white border-slate-300 focus:border-emerald-500 focus:ring-emerald-200"
+                      />
+                      {additionalPaid && Number(additionalPaid) > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setAdditionalPaid('')}
+                          className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                          title="Reset extra payment"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Quick fill chips */}
+                    <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                      <span className="text-[10px] text-slate-400 font-bold">Quick Fill:</span>
+                      {[200, 500, 1000].map(amt => (
+                        <button
+                          key={amt}
+                          type="button"
+                          onClick={() => setAdditionalPaid(String(amt))}
+                          className="text-[10px] font-bold bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 px-2 py-0.5 rounded-lg border border-slate-200 shadow-2xs transition-all active:scale-95"
+                        >
+                          +₹{amt}
+                        </button>
+                      ))}
+                      {currentRemaining > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setAdditionalPaid(String(currentRemaining))}
+                          className="text-[10px] font-extrabold bg-emerald-100 hover:bg-emerald-200 text-emerald-800 px-2.5 py-0.5 rounded-lg border border-emerald-300 shadow-2xs transition-all active:scale-95"
+                        >
+                          Clear Full Balance (₹{currentRemaining})
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 3 Real-time Financial Breakdown Cards */}
+                  <div className="grid grid-cols-3 gap-2 bg-white p-2.5 rounded-xl border border-slate-200 text-center shadow-2xs">
+                    <div className="p-2 rounded-lg bg-slate-50 border border-slate-100">
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Previously Paid</span>
+                      <span className="text-xs font-bold text-slate-700">₹{alreadyPaid}</span>
+                    </div>
+
+                    <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-200">
+                      <span className="text-[9px] font-bold text-emerald-800 uppercase tracking-wider block">Total Paid Now</span>
+                      <span className="text-xs font-black text-emerald-700">
+                        ₹{newTotalPaid}
+                        {morePaid > 0 && <span className="text-[10px] text-emerald-600 font-bold ml-1">(+₹{morePaid})</span>}
+                      </span>
+                    </div>
+
+                    <div className={`p-2 rounded-lg border transition-all ${
+                      newBalance === 0
+                        ? 'bg-emerald-500 text-white border-emerald-600 shadow-sm'
+                        : 'bg-amber-50 border-amber-200 text-amber-900'
+                    }`}>
+                      <span className={`text-[9px] font-bold uppercase tracking-wider block ${
+                        newBalance === 0 ? 'text-emerald-100' : 'text-amber-600'
+                      }`}>
+                        {newBalance === 0 ? 'Status' : 'Remaining Balance'}
+                      </span>
+                      <span className="text-xs font-black">
+                        {newBalance === 0 ? '🎉 Fully Paid (₹0)' : `₹${newBalance}`}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Optional: Modify Total Project Price */}
+                  <details className="text-[11px] text-slate-600">
+                    <summary className="cursor-pointer font-bold text-brand-600 hover:text-brand-700 select-none">
+                      ⚙️ Need to adjust total project fee? (Click to edit)
+                    </summary>
+                    <div className="mt-2 pt-2 border-t border-slate-200 flex items-center gap-2">
+                      <div className="flex-1">
+                        <label className="block text-[10px] font-bold text-slate-500 mb-0.5">Revise Total Project Price (₹)</label>
+                        <input
+                          type="number"
+                          step="1"
+                          min="1"
+                          value={uploadTotalPrice}
+                          onChange={e => setUploadTotalPrice(e.target.value)}
+                          placeholder={String(uploadOrder.total_price)}
+                          className="w-full input-field py-1 text-xs font-bold"
+                        />
+                      </div>
+                      <span className="text-[10px] text-slate-400 max-w-[180px] leading-tight">
+                        Adjusts the base project price before deducting the student's payments.
+                      </span>
+                    </div>
+                  </details>
                 </div>
-                <div className="text-right text-[11px] bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-sm">
-                  <span className="text-slate-400 text-[10px] block">New Balance:</span>
-                  <span className="font-extrabold text-emerald-600">
-                    ₹{Math.max(0, (Number(uploadTotalPrice) || uploadOrder.total_price) - (uploadOrder.advance_amount || 0))}
-                  </span>
-                </div>
-              </div>
-              <p className="text-[10px] text-slate-500">
-                Advance paid was ₹{uploadOrder.advance_amount || 0}. If changed, student's remaining payable balance updates automatically.
-              </p>
-            </div>
+              );
+            })()}
 
             {/* Already Uploaded Files for this order */}
             {uploadOrder.attachments && uploadOrder.attachments.length > 0 && (
@@ -678,10 +808,20 @@ export const AdminOrders: React.FC = () => {
               </button>
               <button
                 type="submit"
-                disabled={uploading || !deliverableFile}
-                className="btn-primary text-xs px-5 py-2 font-bold"
+                disabled={uploading || (!deliverableFile && (!additionalPaid || Number(additionalPaid) <= 0) && (!uploadTotalPrice || Number(uploadTotalPrice) === uploadOrder.total_price))}
+                className="btn-primary text-xs px-5 py-2 font-bold flex items-center gap-1.5 shadow-sm"
               >
-                {uploading ? 'Uploading...' : 'Upload & Deliver to Student'}
+                {uploading ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Updating...</span>
+                  </>
+                ) : (
+                  <>
+                    <Coins className="w-3.5 h-3.5" />
+                    <span>{deliverableFile ? 'Upload Deliverable & Update Balance' : 'Save Payment & Update Balance'}</span>
+                  </>
+                )}
               </button>
             </div>
           </form>

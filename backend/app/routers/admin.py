@@ -381,10 +381,12 @@ def get_analytics(
 @router.post("/orders/{order_id}/upload-deliverable")
 async def upload_deliverable(
     order_id: int,
-    file: UploadFile = File(...),
+    file: Optional[UploadFile] = File(None),
     file_type: str = Form("deliverable"),
     phase_name: Optional[str] = Form(None),
+    additional_paid: Optional[float] = Form(None),
     updated_total_price: Optional[float] = Form(None),
+    new_advance_paid: Optional[float] = Form(None),
     current_user: User = Depends(require_admin),
     db: Session = Depends(get_db)
 ):
@@ -392,65 +394,81 @@ async def upload_deliverable(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    # Update amount if specified
+    # 1. Update total project price if specified
     if updated_total_price is not None and updated_total_price > 0:
         order.total_price = float(updated_total_price)
-        order.balance_amount = max(0.0, order.total_price - (order.advance_amount or 0.0))
 
-    # Check file size limit (up to MAX_FILE_SIZE_MB)
-    file.file.seek(0, 2)
-    file_size = file.file.tell()
-    file.file.seek(0)
-    max_bytes = MAX_FILE_SIZE_MB * 1024 * 1024
-    if file_size > max_bytes:
-        raise HTTPException(
-            status_code=400,
-            detail=f"File exceeds maximum allowed size of {MAX_FILE_SIZE_MB}MB (received {round(file_size / (1024 * 1024), 2)}MB)"
-        )
+    # 2. Record additional payment paid by student or updated paid amount
+    if additional_paid is not None and additional_paid > 0:
+        order.advance_amount = round(float(order.advance_amount or 0.0) + float(additional_paid), 2)
+    elif new_advance_paid is not None and new_advance_paid >= 0:
+        order.advance_amount = round(float(new_advance_paid), 2)
 
-    # Save file
-    safe_filename = f"{order.order_number}_{int(datetime.utcnow().timestamp())}_{file.filename}"
-    file_path = os.path.join(UPLOAD_DIR_DELIVERABLES, safe_filename)
-    with open(file_path, "wb") as f:
-        shutil.copyfileobj(file.file, f)
+    # 3. Recalculate remaining balance automatically
+    order.balance_amount = max(0.0, round(float(order.total_price or 0.0) - float(order.advance_amount or 0.0), 2))
 
-    file_url = f"/uploads/deliverables/{safe_filename}"
+    attachment_id = None
+    file_url = None
     display_type = phase_name if phase_name else file_type
 
-    attachment = OrderAttachment(
-        order_id=order_id,
-        file_name=file.filename,
-        file_url=file_url,
-        file_type=display_type,
-        uploaded_by="admin"
-    )
-    db.add(attachment)
+    # 4. Handle file upload if file is provided
+    if file and file.filename:
+        # Check file size limit (up to MAX_FILE_SIZE_MB)
+        file.file.seek(0, 2)
+        file_size = file.file.tell()
+        file.file.seek(0)
+        max_bytes = MAX_FILE_SIZE_MB * 1024 * 1024
+        if file_size > max_bytes:
+            raise HTTPException(
+                status_code=400,
+                detail=f"File exceeds maximum allowed size of {MAX_FILE_SIZE_MB}MB (received {round(file_size / (1024 * 1024), 2)}MB)"
+            )
 
-    # Auto-transition to ready_for_review if advance_paid, in_progress or revision_requested
-    if order.status in ("in_progress", "advance_paid", "revision_requested"):
-        order.status = "ready_for_review"
+        safe_filename = f"{order.order_number}_{int(datetime.utcnow().timestamp())}_{file.filename}"
+        file_path = os.path.join(UPLOAD_DIR_DELIVERABLES, safe_filename)
+        with open(file_path, "wb") as f:
+            shutil.copyfileobj(file.file, f)
 
-        from app.services.notification_service import create_notification
-        create_notification(
-            db=db,
-            user_id=order.student_id,
-            title="Deliverable Ready for Review! 📦",
-            message=f"Mentor uploaded '{file.filename}' for {order.order_number}. Remaining fee is ₹{order.balance_amount}. Inspect previews and pay balance to unlock.",
-            order_id=order.id,
-            channel="whatsapp",
-            action_url=f"/order/{order.id}"
+        file_url = f"/uploads/deliverables/{safe_filename}"
+
+        attachment = OrderAttachment(
+            order_id=order_id,
+            file_name=file.filename,
+            file_url=file_url,
+            file_type=display_type,
+            uploaded_by="admin"
         )
+        db.add(attachment)
 
-    db.commit()
-    db.refresh(attachment)
+        # Auto-transition to ready_for_review if advance_paid, in_progress or revision_requested
+        if order.status in ("in_progress", "advance_paid", "revision_requested"):
+            order.status = "ready_for_review"
+
+            from app.services.notification_service import create_notification
+            create_notification(
+                db=db,
+                user_id=order.student_id,
+                title="Deliverable Ready for Review! 📦",
+                message=f"Mentor uploaded '{file.filename}' for {order.order_number}. Remaining fee is ₹{order.balance_amount}. Inspect previews and pay balance to unlock.",
+                order_id=order.id,
+                channel="whatsapp",
+                action_url=f"/order/{order.id}"
+            )
+
+        db.commit()
+        db.refresh(attachment)
+        attachment_id = attachment.id
+    else:
+        db.commit()
 
     return {
-        "message": "File uploaded successfully",
+        "message": "Order updated successfully",
         "file_url": file_url,
-        "attachment_id": attachment.id,
+        "attachment_id": attachment_id,
         "file_type": display_type,
         "order_status": order.status,
         "total_price": order.total_price,
+        "advance_amount": order.advance_amount,
         "balance_amount": order.balance_amount
     }
 
