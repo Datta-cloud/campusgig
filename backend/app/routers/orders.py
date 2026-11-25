@@ -373,7 +373,20 @@ def order_to_dict(order: Order) -> dict:
             "utr_number": pending_sub.utr_number,
             "payment_type": pending_sub.payment_type,
             "created_at": pending_sub.created_at.isoformat() if pending_sub.created_at else None
-        } if pending_sub else None
+        } if pending_sub else None,
+        "payment_submissions": [
+            {
+                "id": ps.id,
+                "payment_type": ps.payment_type,
+                "amount": ps.amount,
+                "utr_number": ps.utr_number,
+                "status": ps.status,
+                "admin_notes": ps.admin_notes,
+                "created_at": ps.created_at.isoformat() if ps.created_at else None,
+                "verified_at": ps.verified_at.isoformat() if ps.verified_at else None,
+            }
+            for ps in sorted((order.payment_submissions or []), key=lambda x: x.created_at or datetime.min)
+        ]
     }
 
 

@@ -400,13 +400,86 @@ async def upload_deliverable(
         order.total_price = float(updated_total_price)
 
     # 2. Record additional payment paid by student or updated paid amount
+    prev_paid = float(order.advance_amount or 0.0)
+    recorded_extra = 0.0
     if additional_paid is not None and additional_paid > 0:
-        order.advance_amount = round(float(order.advance_amount or 0.0) + float(additional_paid), 2)
+        recorded_extra = round(float(additional_paid), 2)
+        order.advance_amount = round(prev_paid + recorded_extra, 2)
     elif new_advance_paid is not None and new_advance_paid >= 0:
-        order.advance_amount = round(float(new_advance_paid), 2)
+        new_val = round(float(new_advance_paid), 2)
+        if new_val > prev_paid:
+            recorded_extra = round(new_val - prev_paid, 2)
+        order.advance_amount = new_val
 
     # 3. Recalculate remaining balance automatically
     order.balance_amount = max(0.0, round(float(order.total_price or 0.0) - float(order.advance_amount or 0.0), 2))
+    receipt_id = None
+
+    # 3b. Create individual installment receipt entry & auto-verify if full balance settled
+    if recorded_extra > 0:
+        import uuid
+        from app.routers.orders import append_order_status_history
+        from app.services.referral_service import process_qualifying_referral
+        from app.services.notification_service import create_notification
+
+        is_settled = (order.balance_amount <= 0.01)
+        if is_settled:
+            order.balance_amount = 0.0
+            order.payment_verified = True
+            if order.status in ("pending_payment", "payment_submitted", "balance_submitted", "advance_paid", "in_progress", "ready_for_review"):
+                order.status = "completed"
+                order.completed_at = order.completed_at or datetime.utcnow()
+            if not order.certificate_id:
+                order.certificate_id = f"CG-CERT-2026-{uuid.uuid4().hex[:8].upper()}"
+                order.certificate_issued_at = datetime.utcnow()
+
+        receipt = PaymentSubmission(
+            order_id=order.id,
+            student_id=order.student_id,
+            payment_type="balance" if is_settled else "installment",
+            amount=recorded_extra,
+            utr_number=f"ADMIN-RCPT-{int(datetime.utcnow().timestamp())}",
+            status="approved",
+            admin_notes=f"Installment of ₹{recorded_extra} recorded by Datta Hadke. Remaining balance: ₹{order.balance_amount}.",
+            verified_at=datetime.utcnow(),
+        )
+        db.add(receipt)
+        db.flush()
+        receipt_id = receipt.id
+
+        if is_settled:
+            append_order_status_history(
+                order,
+                "completed",
+                f"Final installment of ₹{recorded_extra} recorded (Receipt #{receipt.utr_number}). Full balance cleared!",
+                actor="admin",
+            )
+            process_qualifying_referral(db, order)
+            create_notification(
+                db=db,
+                user_id=order.student_id,
+                title=f"Full Payment Settled (₹{recorded_extra} Receipt)! 🎉",
+                message=f"Installment receipt {receipt.utr_number} for ₹{recorded_extra} on {order.order_number} is verified. Balance is ₹0 — all deliverables unlocked!",
+                order_id=order.id,
+                channel="email_whatsapp",
+                action_url=f"/order/{order.id}",
+            )
+        else:
+            append_order_status_history(
+                order,
+                order.status,
+                f"Installment of ₹{recorded_extra} recorded (Receipt #{receipt.utr_number}). Remaining balance: ₹{order.balance_amount}.",
+                actor="admin",
+            )
+            create_notification(
+                db=db,
+                user_id=order.student_id,
+                title=f"Installment Receipt ₹{recorded_extra} Confirmed 💳",
+                message=f"Mentor recorded your payment of ₹{recorded_extra} (Receipt #{receipt.utr_number}) for {order.order_number}. Remaining balance: ₹{order.balance_amount}.",
+                order_id=order.id,
+                channel="email_whatsapp",
+                action_url=f"/order/{order.id}",
+            )
 
     attachment_id = None
     file_url = None
@@ -470,6 +543,7 @@ async def upload_deliverable(
         "file_url": file_url,
         "storage_provider": storage_provider,
         "attachment_id": attachment_id,
+        "receipt_id": receipt_id,
         "file_type": display_type,
         "order_status": order.status,
         "total_price": order.total_price,

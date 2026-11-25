@@ -599,6 +599,55 @@ export const OrderDetail: React.FC = () => {
           </div>
         )}
 
+        {/* Installment Payment Receipts Ledger */}
+        {(order as any).payment_submissions && (order as any).payment_submissions.length > 0 && (
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 p-5 shadow-xs space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <h3 className="font-bold text-slate-900 dark:text-white text-sm">
+                  Payment Receipts &amp; Installment History
+                </h3>
+              </div>
+              <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">
+                {(order as any).payment_submissions.length} receipt(s)
+              </span>
+            </div>
+            <div className="divide-y divide-slate-100 dark:divide-zinc-800">
+              {(order as any).payment_submissions.map((ps: any, idx: number) => (
+                <div key={ps.id || idx} className="py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-slate-800 dark:text-zinc-100 capitalize">
+                        #{idx + 1} · {ps.payment_type === 'installment' ? 'Installment Payment' : `${ps.payment_type} Payment`}
+                      </span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                        ps.status === 'approved'
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : ps.status === 'rejected'
+                          ? 'bg-red-100 text-red-700'
+                          : 'bg-amber-100 text-amber-700'
+                      }`}>
+                        {ps.status}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5 font-mono">
+                      Receipt/UTR: {ps.utr_number}
+                      {ps.verified_at ? ` · Verified ${new Date(ps.verified_at).toLocaleString()}` : ''}
+                    </p>
+                    {ps.admin_notes && (
+                      <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">{ps.admin_notes}</p>
+                    )}
+                  </div>
+                  <div className="font-black text-emerald-600 text-sm shrink-0">
+                    +₹{ps.amount}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* 4. Ready for Review Action Banner */}
         {order.status === 'ready_for_review' && (
           <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border-2 border-purple-300 p-6 rounded-2xl shadow-sm space-y-4">

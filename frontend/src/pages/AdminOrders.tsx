@@ -299,6 +299,23 @@ export const AdminOrders: React.FC = () => {
           <Upload className="w-3 h-3 text-purple-600" /> Deliver
         </button>
 
+        {(o as any).student?.phone && (
+          <a
+            href={`https://wa.me/${(() => {
+              const d = String((o as any).student.phone).replace(/\D/g, '');
+              return d.length === 10 ? `91${d}` : d;
+            })()}?text=${encodeURIComponent(
+              `Hi ${(o as any).student?.full_name || 'Student'}, update from Datta Hadke (CampusGig) on your order ${o.order_number} ("${o.project_title}"):\n• Paid so far: ₹${o.advance_amount || 0}\n• Remaining balance: ₹${o.balance_amount || 0}\nView details & deliverables: https://campusgig-ai.vercel.app/order/${o.id}`
+            )}`}
+            target="_blank"
+            rel="noreferrer"
+            className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[11px] px-2.5 py-1 rounded-xl font-bold inline-flex items-center gap-1"
+            title="Send 1-click WhatsApp update to student"
+          >
+            <ExternalLink className="w-3 h-3" /> WhatsApp
+          </a>
+        )}
+
         <Link
           to={`/admin/chat/${o.id}`}
           className="btn-primary text-[11px] px-2.5 py-1 font-bold inline-flex items-center gap-1"
